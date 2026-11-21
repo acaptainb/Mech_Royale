@@ -28,3 +28,23 @@ bot.py and navigation.py are the current controller and planner. bot_v2.py and n
 V4 adds health-aware movement objectives. A damaged mech can select a nearby reachable supply drop, stay inside its capture ring, or choose among twelve nearby positions following damage. Returning from outside the zone, an imminent shrink, and the final small circle take precedence. Ground navigation and ordinary starter game actions carry forward from v3.
 
 From PowerShell run `py tools/objective_checks.py` for the decision regressions, `py verify.py` for the official replay and `py tools/route_trial.py` for a v3/v4 navigation comparison. Official practice is required to measure placement. The active Docker entrypoint runs bot.py (v4).
+
+## Version 5 early-loot experiment
+
+V5 changes one behaviour relative to v4 (commit 124101fe2402a13451921e0d97582adc5b3aab17, tag `v4-scored`): while the second weapon slot is empty and the plain zone objective is active, the mech may leave its zone route for one nearby weapon pickup. Zone return, supply drops and relocation after damage keep priority, and the take itself is v4's existing take action. `loot.py` holds the rule:
+
+- A pickup qualifies when it is a kind we do not hold, lies within 2.5 m of the terrain height (`heights.i16`, so rooftops and bridge decks are excluded), sits on or next to the walkable grid, and is at most 70 m of walking away with at most 80 m added to the trip to the zone goal. The cost is the straight line when it is clear, otherwise the planner's path.
+- The zone must allow it: the pickup is inside the current circle, and either inside the next one or reachable with 8 s to spare before v4's zone-return rule would fire.
+- Opponent pressure cancels it: a game mech within 60 m of us or the pickup, or a drone within its 45 m aggro range of the pickup. A distant drone in `obs["mechs"]` does not.
+- The chosen pickup is kept across decisions and dropped when it disappears in plain view, stays hidden for 5 s, becomes unreachable, threatens the zone deadline, or stops getting closer for 2.5 s. Zone movement resumes on the same decision.
+
+`bot_v4.py` preserves the scored controller for comparison. From PowerShell:
+
+```powershell
+py tools/pickup_trial.py    # closed loop: v4 and v5 from identical starts, pickups actually acquired
+py tools/replay_report.py   # both bots over the recorded stream: pursuit and take requests only
+```
+
+The closed-loop trial moves the mech where the bot steers it on the navigation grid and removes a pickup only after a valid take. It does not model combat, buildings blocking sight, or real match physics. The recorded stream does not react to our bot, so the replay report labels takes as requests. `tools/build_heights.py` regenerates `heights.i16` with the standard library.
+
+Known limit carried over from v4: zone return has no stuck recovery. The 8 s margin exists so that a detour abandoned beside an obstacle the grid does not know still leaves ordinary movement time to free the mech.
