@@ -1,4 +1,4 @@
-"""Run v4 and v5 over the same recorded observation stream and report their pickup decisions.
+"""Run v4 and v5 over the same recorded observation stream: pickup decisions and opponent switching.
 
     py tools/replay_report.py [stream.jsonl or stream.jsonl.gz]
 
@@ -19,6 +19,7 @@ import mechfight as mf
 from bot import Bot as V5
 from bot_v4 import Bot as V4
 from loot import PickupDetour
+from targeting import StableTarget, SwitchCounter, game_mechs, nearest_mech
 
 # Debug drawing has no consumer in a direct controller call.
 mf.draw.line = mf.draw.point = mf.draw.label = lambda *args: None
@@ -75,6 +76,27 @@ def replay(controller, hello, observations):
                 abandoned=dict(sorted(loot.abandoned.items())) if loot else {})
 
 
+def opponent_report(observations):
+    """How often each selection rule changes opponent on this stream. Both v4 and v5 use the
+    nearest-mech rule, so this depends on the rule and the recording, not on the bot."""
+    listed = [len(game_mechs(obs)) for obs in observations]
+    print("opponent selection on this stream")
+    print(f"  decisions with 0 / 1 / 2+ game mechs listed: "
+          f"{listed.count(0)} / {listed.count(1)} / {sum(n >= 2 for n in listed)}")
+    selector = StableTarget()
+    for name, rule in (("nearest mech (v4, v5)", nearest_mech), ("stable target (candidate)", selector.select)):
+        counter = SwitchCounter()
+        for obs in observations:
+            counter.record(obs, rule(obs))
+        s = counter.summary()
+        print(f"  {name:27} engagements {s['engagements']}  decisions engaged {s['engaged']}  "
+              f"switches with previous still listed {s['switches']}  "
+              f"A-B-A reversals within {SwitchCounter.REVERSAL_S:.0f} s {s['reversals']}  "
+              f"changes forced by disappearance {s['forced']}")
+    print("  Counts restart after every decision with no game mech listed.")
+    print()
+
+
 def main():
     path = Path(sys.argv[1]) if len(sys.argv) > 1 else ROOT / "check/stream.jsonl.gz"
     hello, observations = load(path)
@@ -98,6 +120,7 @@ def main():
         print(f"  detours abandoned by reason:             "
               f"{', '.join(f'{k} {v}' for k, v in row['abandoned'].items()) or 'none'}")
     print()
+    opponent_report(observations)
     print("Confirmed acquisitions: not measurable on a recording. See tools/pickup_trial.py.")
 
 
