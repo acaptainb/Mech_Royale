@@ -9,12 +9,14 @@ from objectives import Objectives
 
 
 class Bot(FirstRun):
-    name = "zone-runner-v5"
+    name = "zone-runner-v6"
 
     def __init__(self, hello):
         super().__init__(hello)
         self.nav = Navigator()
-        self.objectives = Objectives()
+        # v6 experiment: no voluntary supply-drop pursuit. Zone return, relocation after
+        # damage, ordinary movement and passive health regeneration are as in v5.
+        self.objectives = Objectives(pursue_drops=False)
         self.loot = PickupDetour(hello)
 
     def act(self, obs):

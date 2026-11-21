@@ -3,7 +3,9 @@ import math
 
 
 class Objectives:
-    def __init__(self):
+    def __init__(self, pursue_drops=True):
+        # False: never travel to or wait at a supply drop. Everything else is unchanged.
+        self.pursue_drops = pursue_drops
         self.last_hp = None
         self.relocate_until = -1
         self.refuge = None
@@ -31,7 +33,7 @@ class Objectives:
             return center
 
         # A destination safely inside both circles stays safe as the zone interpolates.
-        if me["hp"] < 0.80 * me["max_hp"]:
+        if self.pursue_drops and me["hp"] < 0.80 * me["max_hp"]:
             best, best_time = None, math.inf
             for drop in obs["drops"]:
                 at = drop["pos"][:2]
