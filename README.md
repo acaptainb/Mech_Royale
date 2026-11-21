@@ -48,3 +48,13 @@ py tools/replay_report.py   # both bots over the recorded stream: pursuit and ta
 The closed-loop trial moves the mech where the bot steers it on the navigation grid and removes a pickup only after a valid take. It does not model combat, buildings blocking sight, or real match physics. The recorded stream does not react to our bot, so the replay report labels takes as requests. `tools/build_heights.py` regenerates `heights.i16` with the standard library.
 
 Known limit carried over from v4: zone return has no stuck recovery. The 8 s margin exists so that a detour abandoned beside an obstacle the grid does not know still leaves ordinary movement time to free the mech.
+
+## Version 6 selective engagement
+
+V6 changes one behaviour relative to v5 (`dbc4cc2`): which opponent to face and whether to shoot, in `targeting.py` (`Engagement`) with a line-of-fire raster (`cover.py`, `cover.i16`, rebuilt by `tools/build_cover.py`). Movement, pickups and the trigger handling stay v5's. `bot_v5.py` keeps the v5 controller for comparison, and `EXPERIMENTS.md` holds the log and the next experiment.
+
+```powershell
+py tools/engagement_trial.py            # v5 and v6 on identical observations, judged by emitted aim and fire
+py tools/engagement_trial.py --heldout  # randomized encounters checked against rules with exact map geometry
+py tools/engagement_probe.py            # the running bot (or --docker: the match container) uses v6
+```

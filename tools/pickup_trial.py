@@ -1,4 +1,4 @@
-"""Closed-loop pickup trial: v4 and v5 from identical starting positions.
+"""Closed-loop pickup trial: v4 and the current bot (v5 onward) from identical starting positions.
 
 The simulated mech goes where the bot steers it, the zone shrinks on schedule, and a pickup
 leaves the world only after a valid take (in reach, within 4 m of height, slot 1 empty).
@@ -19,7 +19,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 import mechfight as mf
-from bot import Bot as V5
+from bot import Bot as Current
 from bot_v4 import Bot as V4
 from loot import PickupDetour
 from navigation import Navigator
@@ -260,7 +260,7 @@ def build(name, rng):
     raise RuntimeError("no geometry found for " + name)
 
 
-# name -> should v5 detour for the weapon? Where it should not, a take can still happen
+# name -> should the current bot detour for the weapon? Where it should not, a take can still happen
 # exactly as in v4, when the zone route itself passes within reach of the pickup.
 SCENARIOS = {
     "easy nearby pickup": True,
@@ -286,7 +286,7 @@ def main():
         rng = random.Random(51739 + index)
         instances = [build(name, rng) for _ in range(INSTANCES)]
         rows = {}
-        for controller in (V4, V5):
+        for controller in (V4, Current):
             runs = [simulate(controller, scenario) for scenario in instances]
             reasons = {}
             for run in runs:
@@ -302,15 +302,16 @@ def main():
             print(f"{name:30}{controller.name:16}{row['acquired']:>6}/{INSTANCES:<2}{row['requests']:>9}"
                   f"{row['missed']:>9}/{INSTANCES:<2}{row['reached']:>5}/{INSTANCES:<2}{row['median']:>9.1f}{row['detours']:>8}"
                   f"  {', '.join(f'{k} {v}' for k, v in sorted(reasons.items())) or '-'}")
-        old, new = rows[V4.name], rows[V5.name]
+        old, new = rows[V4.name], rows[Current.name]
+        label = Current.name
         if should_acquire and new["acquired"] != INSTANCES:
-            failures.append(f"{name}: v5 acquired {new['acquired']}/{INSTANCES}")
+            failures.append(f"{name}: {label} acquired {new['acquired']}/{INSTANCES}")
         if not should_acquire and new["acquired"] > old["acquired"]:
-            failures.append(f"{name}: v5 acquired {new['acquired']}, v4 {old['acquired']}")
+            failures.append(f"{name}: {label} acquired {new['acquired']}, v4 {old['acquired']}")
         if new["missed"] > old["missed"]:
-            failures.append(f"{name}: v5 missed the zone in {new['missed']} runs, v4 in {old['missed']}")
+            failures.append(f"{name}: {label} missed the zone in {new['missed']} runs, v4 in {old['missed']}")
         if new["reached"] < old["reached"]:
-            failures.append(f"{name}: v5 reached the zone goal in {new['reached']} runs, v4 in {old['reached']}")
+            failures.append(f"{name}: {label} reached the zone goal in {new['reached']} runs, v4 in {old['reached']}")
     print()
     print("acquired = valid takes in the simulation; take req = decisions that sent a take;")
     print("missed zone = runs with any decision spent outside the current circle;")
@@ -320,7 +321,7 @@ def main():
         for line in failures:
             print(" ", line)
         sys.exit(1)
-    print("\nPASS: v5 took every pickup it should detour for, no extra ones elsewhere, "
+    print(f"\nPASS: {Current.name} took every pickup it should detour for, no extra ones elsewhere, "
           "and missed no zone deadline v4 met.")
 
 

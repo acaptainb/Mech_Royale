@@ -16,7 +16,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 import mechfight as mf
-from bot import Bot as V5
+from bot import Bot as Current
 from bot_v4 import Bot as V4
 from loot import PickupDetour
 from targeting import StableTarget, SwitchCounter, game_mechs, nearest_mech
@@ -111,7 +111,7 @@ def main():
         print(f"  closest any listed pickup ever came:     {distance} m (id {key}, {kind}, {where})")
     print(f"  takes confirmed for the RECORDED mech:   {facts['recorded_takes']}   (not ours)")
     print()
-    for controller in (V4, V5):
+    for controller in (V4, Current):
         row = replay(controller, hello, observations)
         print(row["name"])
         print(f"  distinct pickup ids pursued:             {len(row['pursued'])} {row['pursued'] or ''}")
