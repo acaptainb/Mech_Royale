@@ -58,3 +58,7 @@ py tools/engagement_trial.py            # v5 and v6 on identical observations, j
 py tools/engagement_trial.py --heldout  # randomized encounters checked against rules with exact map geometry
 py tools/engagement_probe.py            # the running bot (or --docker: the match container) uses v6
 ```
+
+## Version 7 laser release
+
+V7 changes one behaviour on the 2.08 baseline (`1a0ca39`). A fully charged laser is released on the decision its beam would hit the chosen opponent, where V6 held it until the game fired it on its own. `py tools/entrypoint_trial.py` runs the exported baseline and this tree as real bot processes from identical starting conditions.
