@@ -36,3 +36,13 @@ None of this is a placement result.
 
 - v4 and v5: zone return has no stuck recovery. With v5's zone margin at 2 s, one of ten "deadline closes mid-route" runs ended jammed outside the zone; the margin is 8 s in `dbc4cc2` and all ten runs reach the zone. The underlying gap is unchanged and would be its own single-change experiment.
 - No match feedback or replays were available for the v4 submission without signing in to the Buildathon site, so nothing here is drawn from official matches beyond the score.
+
+## Stable opponent selection (measurement only, branch `exp/stable-target`)
+
+No bot behaviour changes on this branch: `bot.py` is byte-identical to the v5 candidate. `targeting.py` holds the rule under test and the counter, `tools/target_trial.py` the scenario, and `tools/replay_report.py` gained an opponent section.
+
+Observed on the supplied recording (300 decisions, 36.8 s): a game mech is listed in 169 decisions and it is always the same single mech (three separate engagements). No decision lists two or more, so the nearest-mech rule has nothing to choose between: 0 switches, 0 A-B-A reversals, 0 forced changes, for the baseline and for the candidate rule alike. The recording shows no switching, so no candidate bot was built from it.
+
+Deterministic two-mech scenario (`py tools/target_trial.py`, 85 decisions): the nearest-mech rule switches 40 times with 38 A-B-A reversals; the stable-target rule switches twice with none. The candidate follows a clearly closer mech on the first decision, takes a small persistent lead after its 1 s hold, and releases on the same decision its opponent stops being listed. All 11 checks pass.
+
+These are switch counts. They say nothing about placement.
