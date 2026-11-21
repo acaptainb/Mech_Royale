@@ -2,17 +2,29 @@
 
 Practice scoring is 48 matches against 15 house bots, mean of (16 - place); the track page lists the kit's starter bot at 1.15. Local tests catch mistakes; only official practice scores judge placement. A score is entered only after you report it from the Buildathon page.
 
+## Scoreboard
+
+Official practice scores as you report them. V7 to V12 each branch from the 2.08 baseline (`1a0ca39`) and change one behaviour, so each delta below is measured against that same parent.
+
+| Version | Branch | Candidate SHA | Parent SHA | Official score | Delta vs parent |
+| --- | --- | --- | --- | --- | --- |
+| v4 | `main` | `124101fe2402a13451921e0d97582adc5b3aab17` | none | 1.56 | n/a |
+| v5 | `v5-early-loot` | `dbc4cc2da927ddcc3a48e5191c3c070294e2ab72` | `124101f` | 1.75 | +0.19 |
+| v6 | `v6-selective-engagement` | `1a0ca394d26fe5e97c60dbac2ded343a2694b114` | `dbc4cc2` | 2.08 (baseline for v7-v12) | +0.33 |
+| v7 | `v7-laser-release` | `f69d39c2c32f92e533568ce27854cf5efd0e04ca` | `1a0ca39` | **2.19** | +0.11 |
+| v8 | `v8-bullet-dodge` | this commit (tag `v8-candidate`) | `1a0ca39` | pending | pending |
+
 ## Log
 
 | Version | Parent SHA | Candidate SHA | Hypothesis (the one change) | Activation (local) | Local result | Official score | Decision |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| v4 | none | `124101f` (tag `v4-scored`) | health-aware objectives: supply drop when damaged, relocation after damage | not measured | replay 300/300; 12 objective checks | **1.56** | baseline; superseded by v5 |
-| v5 | `124101f` | `dbc4cc2` (tag `v5-candidate`) | detouring for one reachable ground weapon while slot 1 is empty improves placement | 40 detours in 110 closed-loop runs; 0 on the recording (no pickup within 70 m) | acquired 40/40 where intended, none where it should not; no extra zone misses | higher than 1.56 (you reported it; exact value not yet recorded) | **keep: strongest known parent** |
+| v4 | none | `124101f` (tag `v4-scored`) | health-aware objectives: supply drop when damaged, relocation after damage | not measured | replay 300/300; 12 objective checks | 1.56 | superseded by v5 |
+| v5 | `124101f` | `dbc4cc2` (tag `v5-candidate`) | detouring for one reachable ground weapon while slot 1 is empty improves placement | 40 detours in 110 closed-loop runs; 0 on the recording (no pickup within 70 m) | acquired 40/40 where intended, none where it should not; no extra zone misses | 1.75 (+0.19) | kept; superseded by v6 |
 | stable target (measurement) | `dbc4cc2` | `97d49a9` (PR #2) | the nearest-mech rule oscillates between opponents | 0: the recording never lists two mechs | 0 switches on the recording; 40 vs 2 switches in the two-mech scenario | not submitted (no bot change) | rule reused inside v6 |
-| no drop pursuit (parked) | `dbc4cc2` | `0733dd7` (branch `exp/no-drop-pursuit`) | travelling to or waiting at supply drops costs placement | objective checks only | not container-checked | not submitted | parked: superseded by selective engagement as the v6 experiment |
-| v6 | `dbc4cc2` (git parent `cdfa00f`, identical match files) | this commit (tag `v6-candidate`) | facing the opponent that is actually fighting us and holding fire when shots cannot land improves placement | aim or fire differs on 556 of 965 scripted decisions; on the recording, fire differs on 62 and aim on 40 of 300 | 30/30 scenarios; held-out rules R0-R9 pass on 2 x 400 encounters; 10 of 11 mutants caught (the 11th is equivalent); movement, pickups, reloads identical to v5 on 1,265 decisions | pending | pending your score |
-
-Unattributed: a 1.75 seen on the Buildathon page has not been matched to a SHA. It stays out of the table until you give its submission row.
+| no drop pursuit (parked) | `dbc4cc2` | `0733dd7` (branch `exp/no-drop-pursuit`) | travelling to or waiting at supply drops costs placement | objective checks only | not container-checked | not submitted | parked |
+| v6 | `dbc4cc2` (git parent `cdfa00f`, identical match files) | `1a0ca39` (tag `v6-candidate`) | facing the opponent that is actually fighting us and holding fire when shots cannot land improves placement | aim or fire differs on 556 of 965 scripted decisions; on the recording, fire differs on 62 and aim on 40 of 300 | 30/30 scenarios; held-out rules pass on 2 x 400 encounters; 10 of 11 mutants caught; movement identical to v5 on 1,265 decisions | 2.08 (+0.33) | keep: baseline for v7-v12 |
+| v7 | `1a0ca39` | `f69d39c` (tag `v7-candidate`) | releasing a full laser charge the moment the beam is on the chosen opponent improves placement | 4 of 7 entrypoint scenarios; 0 on the recording (no laser held) | first beam on target 0.0-0.8 s vs 1.9-2.7 s; half-speed charging roughly halved; controls identical | **2.19 (+0.11)** | **keep: best score so far** |
+| v8 | `1a0ca39` | this commit (tag `v8-candidate`) | one brief sideways step away from a visible bullet on course to hit us cuts hits taken | 1 dodge on the recording (9 bullets on course: 5 too close to clear, 3 inside the 2 s cooldown) | 9/9 scripted checks; hits -8% (tuning) and -7% (held-out) in the reactive trial, 0 zone exits, every route finished | pending | pending your score |
 
 ## v6: selective engagement
 
@@ -27,6 +39,44 @@ Evidence (`py tools/engagement_trial.py`, `--heldout`, `py tools/engagement_prob
 - The independent review raised 26 findings and confirmed 20. All were fixed or turned into checks; the 6 refuted ones are documented in the review run.
 - Recording: no pickup is pursued and only one mech is ever listed. v6 holds fire on 54 decisions where the raster says a building blocks the line (no shot landed by either side in that window) and on 8 where a crossing mech at about 147 m would dodge unled bullets. The raster calls all 37 lines before a landed shot clear.
 - Timing: 0 late answers, p99 1.1 ms on Windows; worst case with 15 opponents at 200 m is 2.5 ms. The CI conformance job runs the restricted linux/amd64 container, and the probe asserts that the container's bot aims at an attacker rather than a closer passive mech.
+
+## v8: brief sideways dodge (single change on `1a0ca39`)
+
+`dodge.py`, applied in `bot.py` right after v6's move and boost are set. When a visible gun or NPC bullet is on course, `Dodge.steer` overrides move and boost with one sideways step:
+
+- **On course:** its straight path meets our body (radius + bullet radius + 0.5 m) at the point our current velocity carries us to, within 1 s.
+- **The step:** perpendicular to the bullet, boosted while energy stays above 20, held for 0.3 s.
+- **Side:** whichever side leaves the bullet farthest from us when it arrives, given our velocity, ground acceleration and speed cap.
+- **Skipped when any of these hold:**
+  - the zone return is urgent (return mode, the boost-when-late rule, or outside the zone);
+  - the 4 m step is blocked on the ground grid on both sides;
+  - the step would end within 3 m of the current circle's edge;
+  - the step cannot clear the bullet in time;
+  - another dodge started less than 2 s ago.
+
+Mortar shells are ignored. Each bullet is answered at most once.
+
+Two rules were added after the first reactive run:
+
+- **Feasibility gate:** a dodge that cannot clear the bullet in time is skipped.
+- **2 s cooldown:** at most one dodge per 2 s.
+
+As first written, the rule stepped sideways at nearly every bullet under sustained fire (one every 0.25 s). It never finished a route in 12 episodes, spent 1,749 boost energy and took 694 hits against the baseline's 441. Both refinements keep "one brief dodge" literal. The held-out episodes were generated only after these values were fixed.
+
+Evidence (`py tools/dodge_trial.py`; baseline exported from `1a0ca39`, both bots as `python -u bot.py`):
+
+| Check | Baseline | v8 |
+| --- | --- | --- |
+| direct incoming bullet, 150 m | walks on | steps sideways, boosting |
+| harmless near miss (8 m wide), bullet moving away, mortar shell, bullet too close to clear (40 m) | | identical to baseline |
+| wall on one side | | steps to the open side |
+| walls on both sides, urgent zone return | | identical to baseline |
+| zone edge 2 m away | | steps inward |
+| reactive, 12 tuning episodes (shooter 60-150 m, leads every bullet) | 441 hits, 0 boost energy, 0 decisions outside | 404 hits, 230 energy, 0 outside; arrival +0.9 s on average |
+| reactive, 16 held-out episodes on fresh routes | 596 hits, 0 energy, 0 outside | 554 hits, 214 energy, 0 outside; arrival +0.6 s on average |
+| standard recording | | 1 dodge, 3 decisions differ |
+
+The gain comes almost entirely from shooters beyond about 100 m. Closer bullets arrive before a 2.8 m sideways shift is possible, and the feasibility gate skips them. The reactive world has no walls for bullets, no return fire and a perfectly leading shooter, so these are first-order effects, not placements.
 
 ## Next experiment: laser trigger discipline (#3)
 

@@ -58,3 +58,7 @@ py tools/engagement_trial.py            # v5 and v6 on identical observations, j
 py tools/engagement_trial.py --heldout  # randomized encounters checked against rules with exact map geometry
 py tools/engagement_probe.py            # the running bot (or --docker: the match container) uses v6
 ```
+
+## Version 8 bullet dodge
+
+V8 changes one behaviour on the 2.08 baseline (`1a0ca39`). When a visible bullet is on course to hit us, the mech takes one brief sideways step (`dodge.py`). It skips the step when the step is blocked, would leave the zone, cannot clear the bullet in time, or would delay an urgent zone return, and it dodges at most once every 2 s. `py tools/dodge_trial.py` compares the exported baseline and this tree as real bot processes. `tools/harness.py` holds the shared process and baseline-export helpers.
