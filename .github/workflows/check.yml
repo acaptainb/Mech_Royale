@@ -8,6 +8,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: python3 verify.py --docker
+      # The image verify.py just built must show the v6 engagement behaviour.
+      - run: python3 tools/engagement_probe.py --docker
   windows:
     runs-on: windows-latest
     steps:
@@ -16,3 +18,4 @@ jobs:
         with:
           python-version: '3.13'
       - run: python verify.py
+      - run: python tools/engagement_probe.py

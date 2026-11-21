@@ -1,21 +1,24 @@
-"""Zone navigation, resource decisions and an early weapon detour for the Mech Royale simulation."""
+"""Zone navigation, resource decisions, an early weapon detour and selective engagement for Mech Royale."""
 import math
 
 import mechfight as mf
+from cover import Cover
 from first_run import Bot as FirstRun
 from loot import PickupDetour
 from navigation import Navigator
 from objectives import Objectives
+from targeting import Engagement
 
 
 class Bot(FirstRun):
-    name = "zone-runner-v5"
+    name = "zone-runner-v6"
 
     def __init__(self, hello):
         super().__init__(hello)
         self.nav = Navigator()
         self.objectives = Objectives()
         self.loot = PickupDetour(hello)
+        self.engagement = Engagement(hello, Cover())
 
     def act(self, obs):
         action = super().act(obs)
@@ -69,6 +72,22 @@ class Bot(FirstRun):
             for weapon in me["weapons"]:
                 if weapon and weapon["kind"] == "gun" and weapon.get("ammo",12) <= 5:
                     action["reload"] = True
+        # v6: opponent choice and the decision to shoot replace the inherited nearest-mech
+        # rule. Movement, pickups and how the weapons are triggered are as in v5.
+        engage = self.engagement.decide(obs)
+        # During a pickup detour v5 faces the pickup to keep it in view; only a listed
+        # opponent overrides that, never the turn toward an unseen attacker.
+        if engage["aim"] is not None and not (pickup is not None and engage["target"] is None):
+            action["aim"] = engage["aim"]
+        fire = [bool(engage["fire"]), bool(engage["fire"])]
+        if not engage["fire"] and engage["target"] is not None:
+            # Letting go of a charging laser fires it along the current aim, into the cover
+            # or at an opponent we chose to spare. Keep that trigger held, as v5 does while
+            # an opponent is listed; a full charge only fires on its own after hold_s.
+            for slot, weapon in enumerate(me["weapons"][:2]):
+                if weapon and weapon.get("kind") == "laser" and weapon.get("charge", 0) > 0:
+                    fire[slot] = True
+        action["fire"] = fire
         return action
 
 
