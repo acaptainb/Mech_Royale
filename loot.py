@@ -340,7 +340,8 @@ class PickupDetour:
                 self.pending = searching = None
             extra = cost + math.dist(at, zone_goal) - math.dist(pos, zone_goal)
             route_limit = self.reach_for(pickup["kind"]) if self.squad else self.MAX_ROUTE
-            extra_limit = route_limit if self.squad else self.MAX_EXTRA
+            # squad-fire: no cap on the added trip; the zone-timing check below decides.
+            extra_limit = FOREVER if self.squad else self.MAX_EXTRA
             if cost > route_limit or extra > extra_limit:
                 self.skip[key] = FOREVER if cost == FOREVER else now + 10
                 continue
