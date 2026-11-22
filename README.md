@@ -58,3 +58,7 @@ py tools/engagement_trial.py            # v5 and v6 on identical observations, j
 py tools/engagement_trial.py --heldout  # randomized encounters checked against rules with exact map geometry
 py tools/engagement_probe.py            # the running bot (or --docker: the match container) uses v6
 ```
+
+## Version 11 post-kill cube detour
+
+V11 changes one behaviour on the 2.08 baseline (`1a0ca39`). A confirmed kill opens one 6 s window in which the existing cube choice may reach 40 m and run while other mechs are listed. The window closes on the first threat, when zone timing tightens, or when its cubes are collected (`kill_cubes.py`). `py tools/kill_cube_trial.py` compares the exported baseline and this tree as real bot processes.
