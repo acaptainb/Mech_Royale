@@ -4,6 +4,7 @@ Practice mode (practice.py: after 20 s, while every death so far is one of our k
 decision to the practice design, in three parts: squad_fire.py (what to face and shoot, how each
 trigger is pulled, the weapon wishes and the upgrade order), squad_move.py (where to stand in a
 fight) and squad_econ.py (loot all match, zone camping, the idle aim and the stuck rule).
+In practice mode the zone only takes over the movement on a deadline: squad_econ.py's zone must.
 Outside practice mode every decision is farm-power's.
 """
 import math
@@ -24,7 +25,7 @@ from targeting import Engagement
 
 
 class Bot(FirstRun):
-    name = "zone-runner-squad-all-fixed"
+    name = "zone-runner-squad-all-zone"
 
     def __init__(self, hello):
         super().__init__(hello)
@@ -149,41 +150,48 @@ class Bot(FirstRun):
     def practice_act(self, obs, action, mode, waypoint, pickup):
         """Practice mode. squad_fire.py decides first (it only reads the observation), so the
         movement knows the target. Movement, highest first: the stuck recovery (squad_econ.py);
-        the bullet and shell dodges, which keep the final word as always; zone must; the LoseRule
-        retreat, unless finishing or late; the fight move against the target with the mid-fight
-        cube grab (both squad_move.py, and never during the parent's urgent zone return); a laser
-        pickup detour; zone should; the detour to any other wanted weapon (squad_fire.py's
-        wishes); loot (cubes only under threat); camp or walk to the zone goal. Supply drops and
-        the relocate hop after damage are not used here. The laser sidestep is blended into any
-        move below zone must. Aim and triggers are squad_fire.py's; the loot shot applies only
-        with nothing to shoot, the idle aim only with no target and no engaged enemy to face."""
-        me, zone = obs["self"], obs["zone"]
+        the bullet and shell dodges, which keep the final word; zone must; the LoseRule retreat,
+        unless finishing or late; the fight move against the target with the mid-fight cube grab
+        (both squad_move.py); a laser pickup detour; zone should; the detour to any other wanted
+        weapon (squad_fire.py's wishes); loot (cubes only under threat); camp or walk to the zone
+        goal. Supply drops and the relocate hop after damage are not used here. The laser
+        sidestep is blended into any move below zone must. Aim and triggers are squad_fire.py's;
+        the loot shot applies only with nothing to shoot, the idle aim only with no target and
+        no engaged enemy to face.
+
+        squad-zone: the zone takes the movement only on a deadline, squad_econ.py's zone plan:
+        - zone must (outside the zone, or the walk to the zone goal ends within 3 s of the
+          deadline at our spot): no fight move, retreat or laser sidestep; the shell dodge still
+          steps out of a blast and the bullet dodge blends into the walk,
+          normalise(0.4 x walk + 0.9 x step), so the walk keeps making progress;
+        - hurry (outside the current circle, or the walk ends at or after that deadline, which
+          covers the last 3 s before it): straight to the goal with boost and no dodge at all;
+        - otherwise, even outside the next circle or in the last phase, everything works as in
+          the rest of practice play."""
+        me = obs["self"]
         x, y, _ = me["pos"]
         # Asked on every decision so its memory and line-of-fire cache stay current; its farming
         # shots are off because loot (crates, drones, cubes) belongs to squad_econ.py here.
         engage = self.engagement.decide(obs, farm=False)
         plan = self.squad_fire.decide(obs, engage, pickup)
-        distance_to_safe = math.dist((x,y),zone["next_center"]) - zone["next_radius"]
-        walk_time = max(0,distance_to_safe) / max(1,me["stats"]["walk_speed"])
-        late = distance_to_safe > 0 and obs["t"] + walk_time + 4 > zone["shrink_start"]
-        urgent = mode == "return" or late or not me["in_zone"]
         fighter, econ = self.squad_move, self.squad_econ
         # The mech to fight is the target only: engaged, with a line of fire, within 240 m. An
         # engaged mech without one is faced by the idle aim, never walked to.
         fighter.assess(obs, plan["target"])
-        fight = None if urgent else (lambda goal: fighter.plan(obs, goal))
         laser = pickup is not None and (self.loot.target or {}).get("kind") == "laser"
+        # Zone must outranks the fight part inside econ.plan, so the fight part is always offered.
         step = econ.plan(obs, plan["target"] is not None, waypoint if pickup is not None else None,
-                         fight=fight, laser=laser)
+                         fight=lambda goal: fighter.plan(obs, goal), laser=laser)
+        deadline = econ.zone.state
+        must, hurry = bool(deadline.get("must")), bool(deadline.get("hurry"))
         action["move"], action["jump"], action["boost"] = step["move"], step["jump"], step["boost"]
-        if not urgent and econ.mode not in ("unstuck", "zone must"):
+        if not must and econ.mode not in ("unstuck", "zone must"):
             side = fighter.sidestep(obs, action["move"])
             if side is not None:
                 action["move"] = side[0]
                 action["boost"] = action["boost"] or side[1]
-        urgent = urgent or step["urgent"]
-        self.dodge.steer(obs, action, urgent=urgent)
-        self.shell_dodge.steer(obs, action, urgent=urgent)
+        self.dodge.steer(obs, action, urgent=hurry, blend=must)
+        self.shell_dodge.steer(obs, action, urgent=hurry)
         # Aim and triggers. With nothing to face (no subject; only unengaged mechs listed) we
         # look where we would with nobody listed: the pickup during its detour, else the idle aim.
         idle = plan["subject"] is None and (plan["reason"] == "no subject"

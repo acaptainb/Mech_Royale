@@ -587,7 +587,9 @@ class Squad:
     weapon (squad_fire.py's wishes); loot (cubes only while a mech hunts us, a mech hit us in
     the last 4 s or there is a mech target); otherwise walk to the zone goal and stand still
     within ARRIVE_M of it. Supply drops and the relocate hop after damage are not followed in
-    practice mode. The bullet and shell dodges still have the last word on the move in bot.py.
+    practice mode. The bullet and shell dodges still have the last word on the move in bot.py;
+    bot.py also reads zone must and hurry from ZonePlan: on a zone-must walk the bullet dodge
+    blends into the walk, and on hurry neither dodge acts.
     """
     ARRIVE_M = 3.0
     ZONE_MOVE_M = 2.0       # zone must and should only move us when the goal is this far

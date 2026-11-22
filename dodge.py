@@ -1,4 +1,7 @@
-"""v8: one brief sideways step away from a visible bullet that is on course to hit us."""
+"""v8: one brief sideways step away from a visible bullet that is on course to hit us.
+
+squad-zone: on practice mode's zone-must walk the step is blended into the walk instead of
+replacing it (Dodge.steer(blend=True))."""
 import math
 
 
@@ -11,6 +14,7 @@ class Dodge:
     DODGE_S = 0.2             # how long one dodge steers sideways (2 decisions; tuned from 0.3)
     COOLDOWN_S = 0.5         # at most one dodge per this long (tuned from 2.0 by tools/dodge_sweep.py)
     ENERGY_RESERVE = 20.0     # boost the step only while this much energy stays in hand
+    PLAN_W, DODGE_W = 0.4, 0.9  # squad-zone: weights of the planned move and the step in a blend
 
     def __init__(self, hello, nav):
         config = hello["config"]
@@ -57,16 +61,20 @@ class Dodge:
                 best = (bullet, t, (mx, my))
         return best
 
-    def steer(self, obs, action, urgent):
+    def steer(self, obs, action, urgent, blend=False):
         """Override move and boost with a sideways step when a bullet is on course.
+        blend=True (squad-zone: practice mode's zone-must walk) keeps part of the planned move:
+        the move becomes normalise(PLAN_W x plan + DODGE_W x step), so the walk keeps going.
         Returns True while a dodge is steering this decision."""
         me, now, zone = obs["self"], obs["t"], obs["zone"]
         pos = me["pos"]
+        plan = self.heading(action) if blend else None
         if self.active is not None:
             until, side = self.active
-            end = (pos[0] + side[0] * self.STEP_M / 2, pos[1] + side[1] * self.STEP_M / 2)
+            way = self.mix(plan, side)
+            end = (pos[0] + way[0] * self.STEP_M / 2, pos[1] + way[1] * self.STEP_M / 2)
             if now < until - 1e-9 and not urgent and self.nav.clear_segment(pos, end):
-                self.apply(action, me, side)
+                self.apply(action, me, way)
                 return True
             self.active = None
         threat = self.incoming(obs)
@@ -85,6 +93,8 @@ class Dodge:
         vx, vy = bullet["vel"][:2]
         norm = math.hypot(vx, vy)
         nx, ny = -vy / norm, vx / norm
+        if blend:
+            return self.blended(action, me, zone, now, plan, (nx, ny), arrival, (mx, my), bullet["kind"])
         # Pick the side that leaves the bullet farthest from us when it arrives, using our
         # current velocity, the ground acceleration and the speed cap for that step.
         stats = me.get("stats") or {}
@@ -124,6 +134,66 @@ class Dodge:
         action["move"] = [side[0], side[1]]
         action["boost"] = me.get("energy", 0) > self.ENERGY_RESERVE
         action["jump"] = False
+
+    @staticmethod
+    def heading(action):
+        """The planned move as a unit vector, or None when it stands still."""
+        move = action.get("move") or [0.0, 0.0]
+        length = math.hypot(move[0], move[1])
+        return (move[0] / length, move[1] / length) if length > 1e-9 else None
+
+    def mix(self, plan, side):
+        """normalise(PLAN_W x plan + DODGE_W x side); the side alone without a plan."""
+        if plan is None:
+            return side
+        mx = self.PLAN_W * plan[0] + self.DODGE_W * side[0]
+        my = self.PLAN_W * plan[1] + self.DODGE_W * side[1]
+        length = math.hypot(mx, my)   # at least DODGE_W - PLAN_W for unit vectors
+        return (mx / length, my / length)
+
+    def blended(self, action, me, zone, now, plan, normal, arrival, miss, kind):
+        """squad-zone: the dodge on a zone-must walk. Each side's blended move is judged by how far
+        it carries us across the bullet's path by the time it arrives (ground acceleration and the
+        speed cap, as for the plain step). Of the moves that clear the bullet, the one that keeps
+        more of the walk comes first; the other side is the fallback when that step is blocked."""
+        nx, ny = normal
+        stats = me.get("stats") or {}
+        accel = stats.get("ground_accel", 58.5)
+        cap = stats.get("boost_speed" if me.get("energy", 0) > self.ENERGY_RESERVE else "walk_speed", 11.7)
+        u = (me.get("vel") or [0, 0])[:2]
+        across = nx * u[0] + ny * u[1]
+        offset = nx * miss[0] + ny * miss[1]
+        reach = stats.get("radius", 2.5) + self.bullet_radius[kind]
+        options = []
+        for sign in (1, -1):
+            side = (sign * nx, sign * ny)
+            way = self.mix(plan, side)
+            change = cap * (nx * way[0] + ny * way[1]) - across
+            headroom = abs(change)
+            ramp = headroom / accel
+            shift = (0.5 * accel * arrival ** 2 if arrival <= ramp
+                     else 0.5 * accel * ramp ** 2 + headroom * (arrival - ramp))
+            missed = abs(offset - math.copysign(shift, change))
+            progress = way[0] * plan[0] + way[1] * plan[1] if plan is not None else 0.0
+            options.append((missed > reach, progress if missed > reach else 0.0, missed, side, way))
+        if not any(option[0] for option in options):
+            self.count("skipped: too close to clear in time")
+            return False
+        options.sort(key=lambda o: (not o[0], -o[1], -o[2]))
+        pos = me["pos"]
+        for clears, _, _, side, way in options:
+            end = (pos[0] + way[0] * self.STEP_M, pos[1] + way[1] * self.STEP_M)
+            if not self.nav.clear_segment(pos, end):
+                continue
+            if math.dist(end, zone["center"]) + self.ZONE_MARGIN_M > zone["radius"]:
+                continue
+            self.active = (now + self.DODGE_S, side)
+            self.last = now
+            self.count("dodged on the zone walk" if clears else "dodged on the zone walk, other side")
+            self.apply(action, me, way)
+            return True
+        self.count("skipped: both sides blocked or outside the zone")
+        return False
 
 
 class ShellDodge:

@@ -129,8 +129,9 @@ def hunter(key, pos, weapon="gun", mode="hunt", standoff=60.0, hp=1400.0, shoots
 
 def run(folder, start, hunters, seconds=20.0, t0=T0, hp0=1400.0, laser=False, zone=None, cubes=(),
         move_us=True, damage_hunters=True, seed=1, alive=None, outside_death_at=None, energy0=100.0,
-        gun_state=None, bot=None, record=True):
-    """One loop. Returns per-decision records and totals."""
+        gun_state=None, bot=None, record=True, zone_damage=False):
+    """One loop. Returns per-decision records and totals. `zone` may be a function of match time
+    (a shrinking circle); zone_damage=True applies its dps while we are outside the circle."""
     own_bot = bot is None
     bot = bot or BotProcess(folder, et.HELLO)
     rng_us, rng_them = random.Random(seed), random.Random(seed + 1000)
@@ -151,8 +152,12 @@ def run(folder, start, hunters, seconds=20.0, t0=T0, hp0=1400.0, laser=False, zo
         gun.update(gun_state)
     las = dict(kind="laser", cooldown=0.0, charge=0.0, stats=copy.deepcopy(LASER)) if laser else None
     held = 0.0
+    zone_at = zone if callable(zone) else None
+    if zone_at is not None:
+        zone = zone_at(t0)
     zone = copy.deepcopy(zone) if zone else dict(center=list(start), radius=400.0, next_center=list(start),
                                                  next_radius=250.0, shrink_start=1000.0, shrink_end=1050.0, dps=20)
+    hit_times, zone_taken = [], 0.0
     items = [dict(id=5000 + n, pos=[c[0], c[1], c[2] if len(c) > 2 else et.ground(*c[:2])]) for n, c in enumerate(cubes)]
     next_cube = 5000 + len(items)
     alive_count = alive if alive is not None else 16  # practice: us and 15 house mechs
@@ -163,6 +168,8 @@ def run(folder, start, hunters, seconds=20.0, t0=T0, hp0=1400.0, laser=False, zo
     died = None
     for tick in range(int(seconds / DT)):
         now = round(t0 + tick * DT, 2)
+        if zone_at is not None:
+            zone = zone_at(now)
         if outside_death_at is not None and abs(now - outside_death_at) < 1e-6:
             alive_count -= 1
         for h in ws:
@@ -203,6 +210,7 @@ def run(folder, start, hunters, seconds=20.0, t0=T0, hp0=1400.0, laser=False, zo
                     amount = LIGHTNING["damage"] * (MECH["rear_mult"] if rear else 1.0)
                     hp -= amount
                     taken += amount
+                    hit_times.append(now)
                     last_combat = h["last_combat"] = now
                     events.append(dict(type="damaged", amount=amount, weapon="lightning", by=h["id"], rear=rear, bearing=came))
                     h["next_zap"] = now + LIGHTNING["cooldown"]
@@ -269,7 +277,7 @@ def run(folder, start, hunters, seconds=20.0, t0=T0, hp0=1400.0, laser=False, zo
                 gun["reload"] = GUN["reload"]
             if record:
                 rows.append(dict(t=now, pos=(x, y), hp=hp, mode=squad_mode(action), move=list(move), boost=boost,
-                                 action=plain(action), listed=len(listed),
+                                 action=plain(action), listed=len(listed), in_zone=obs["self"]["in_zone"],
                                  dist=[math.dist(h["pos"], (x, y)) if h["alive"] else None for h in ws]))
         # torso
         turn = (commanded[0] - aim[0] + math.pi) % math.tau - math.pi
@@ -391,6 +399,7 @@ def run(folder, start, hunters, seconds=20.0, t0=T0, hp0=1400.0, laser=False, zo
                     amount = GUN["damage"] * (MECH["rear_mult"] if rear else 1.0)
                     hp -= amount
                     taken += amount
+                    hit_times.append(now)
                     last_combat = now
                     for h in ws:
                         if h["id"] == b["owner"]:
@@ -415,6 +424,11 @@ def run(folder, start, hunters, seconds=20.0, t0=T0, hp0=1400.0, laser=False, zo
                 for off in (-1.5, 1.5):
                     items.append(dict(id=next_cube, pos=[h["pos"][0] + off, h["pos"][1], et.ground(*h["pos"])]))
                     next_cube += 1
+        if zone_damage and math.dist((x, y), zone["center"]) > zone["radius"]:
+            amount = zone.get("dps", 20) * DT
+            hp -= amount
+            zone_taken += amount
+            events.append(dict(type="damaged", amount=amount, weapon="zone", by=None, bearing=None))
         # regeneration
         if now - last_combat >= MECH["regen_delay"] and hp > 0:
             hp = min(max_hp, hp + MECH["regen_per_s"] * DT)
@@ -427,7 +441,8 @@ def run(folder, start, hunters, seconds=20.0, t0=T0, hp0=1400.0, laser=False, zo
     if own_bot:
         bot.close()
     return dict(rows=rows, taken=round(taken), dealt=round(dealt), kills=kills, kill_times=kill_times, died=died,
-                hp=round(max(hp, 0)), collected=collected, end=(x, y))
+                hp=round(max(hp, 0)), collected=collected, end=(x, y), hits=len(hit_times), hit_times=hit_times,
+                zone_taken=round(zone_taken))
 
 
 # --- geometry ----------------------------------------------------------------------------------

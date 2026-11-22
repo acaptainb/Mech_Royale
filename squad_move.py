@@ -2,8 +2,8 @@
 
 In practice matches the 15 house mechs hunt us together, and only our kills before we die
 count. While practice mode is on (practice.py: from 20 s of match time, while every death so far
-is one of our kills) bot.py asks this part for the move whenever the zone return is not urgent
-and neither the stuck recovery nor zone must (squad_econ.py) is moving us:
+is one of our kills) bot.py asks this part for the move whenever neither the stuck recovery nor
+zone must (squad_econ.py's deadline rule) is moving us:
 
 - FightMove: while there is a mech to fight (squad_fire.py's target: engaged, with a line of
   fire, within 240 m; an engaged mech without one is only faced, never walked to), score staying
@@ -19,9 +19,9 @@ and neither the stuck recovery nor zone must (squad_econ.py) is moving us:
   without one, fight on with a line of fire wanted, and with no foe, head for the zone goal.
 - Laser sidestep: a mech charging a laser aimed at us adds a sidestep along the strafe side.
 
-When none of it applies the lower rules of squad_econ.py move us. None of it acts during the
-urgent zone return, and the bullet Dodge and ShellDodge in bot.py keep the final word. Outside
-practice mode nothing here touches the action.
+When none of it applies the lower rules of squad_econ.py move us. None of it acts while zone
+must holds, and the bullet Dodge and ShellDodge in bot.py keep the final word. Outside practice
+mode nothing here touches the action.
 """
 import copy
 import math
@@ -462,8 +462,7 @@ class SquadMove:
     """Practice-mode fight movement: see the module docstring. bot.py calls remember() on every
     decision, and in practice mode assess() once per decision (the LoseRule pulse runs even while
     a higher rule moves us), then plan() when the stuck recovery and zone must (squad_econ.py) have
-    passed and the zone return is not urgent, and sidestep() on whatever move was chosen below
-    zone must."""
+    passed, and sidestep() on whatever move was chosen while zone must does not hold."""
     SEEN_S = 2.5           # a hunter listed this recently still counts
     THREAT_M = 230.0       # cover is sought from hunters this close
     MAX_THREATS = 4
