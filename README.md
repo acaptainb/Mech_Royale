@@ -82,3 +82,7 @@ Built on lead-shots (`4d8a32d`, official 2.90). The bot steps out of the blast o
 ## dodge-tuned
 
 Built on mortar-dodge (`1645c22`, official 3.00). The v8 bullet dodge steps aside at most once per 0.5 s (was 2 s), for 0.2 s (was 0.3 s). The values come from `py tools/dodge_sweep.py`, which runs dodge settings through the dodge trial's tuning and held-out routes.
+
+## drop-always-on-dodge-tuned
+
+Built on dodge-tuned (`dd9b731`, official 3.10). Goes for supply drops at any HP within a 30 s capture window (`objectives.py`). Run `py tools/drop_trial.py`.

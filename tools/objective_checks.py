@@ -40,9 +40,15 @@ def scenario(change, expected, movement=None, damage=False):
 scenario(lambda o,d: None,"drop",True)
 scenario(lambda o,d:d.update(pos=[x+2,y,0],holder=o["self"]["id"],progress=2),"drop",False)
 scenario(lambda o,d:d.update(holder=99),"zone")
-scenario(lambda o,d:d.update(lands_in=20),"zone")
+# drop-always: a drop still falling is worth walking to while the capture finishes within
+# 30 s (was 10 s); past that window the plain zone objective stands.
+scenario(lambda o,d:d.update(lands_in=20),"drop",True)
+scenario(lambda o,d:d.update(lands_in=25),"drop",True)
+scenario(lambda o,d:d.update(lands_in=27),"zone")
 scenario(lambda o,d:d.update(pos=[x+12,y,20]),"zone")
-scenario(lambda o,d:o["self"].update(hp=990),"zone")
+# drop-always: no HP gate (was below 80% HP only).
+scenario(lambda o,d:o["self"].update(hp=990),"drop",True)
+scenario(lambda o,d:o["self"].update(hp=1000),"drop",True)
 scenario(lambda o,d:o["self"].update(in_zone=False),"return")
 scenario(lambda o,d:o["zone"].update(next_radius=0),"return")
 scenario(lambda o,d:o.update(drops=[]),"relocate",True,damage=True)
