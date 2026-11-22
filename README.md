@@ -78,3 +78,7 @@ Built on the 2.63 commit (`3b290b0`). The gun aims where a moving opponent will 
 ## crossing-fire
 
 Built on lead-shots (`4d8a32d`, official 2.90). When the gun's aim is led, the bot also fires at passive opponents that v6 held fire on because unled shots would miss. Run `py tools/crossing_fire_trial.py` to compare against lead-shots.
+
+## break-sight
+
+Built on crossing-fire (`c120041`, official 2.94). The rule fires when a mech has hit us in the last 1.5 s and we are below 55% HP or see two or more mechs. The bot then moves to the nearest reachable point (up to 24 m away) that solid cover hides from every opponent it knows of, and stands there until HP regenerates to 85%. It leaves earlier if the zone return becomes urgent or after 20 s. Aim and fire are unchanged, and the v8 dodge keeps the final say. `breaksight.py` holds the rule. Run `py tools/break_sight_trial.py` for closed-loop gunfights against crossing-fire.

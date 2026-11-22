@@ -32,6 +32,7 @@ GUN = CONFIG["weapons"]["gun"]
 BULLET_R = CONFIG["projectile"]["gun_radius"]
 GRID = Navigator()
 DT_TICK = 0.05
+HP_POOL = 1400 * 19  # reactive episodes only: keeps our HP fraction above break-sight's 55% trigger
 
 
 def walkable(point):
@@ -246,8 +247,12 @@ def react(folder, ep):
         shooter["aim"] = [math.atan2(y - sy, x - sx), 0.0]
         if tick % 2 == 0:
             visible = [dict(id=b["id"], kind="gun", pos=list(b["pos"]), vel=list(b["vel"])) for b in bullets]
+            # This world never kills (bullets also ignore cover), so our HP sits on a large pool:
+            # the HP losses are the same, but break-sight's "below 55% HP" trigger stays out of a
+            # trial that measures dodging. Earlier versions only read HP decreases here.
             obs = observation(tick // 2, [x, y], (vx, vy), ep["goal"], visible, [shooter], ep["zone"],
-                              events, hp=hp, energy=energy)
+                              events, hp=hp + HP_POOL, energy=energy)
+            obs["self"]["max_hp"] = 1400 + HP_POOL
             obs["t"] = round(now, 2)
             if not obs["self"]["in_zone"]:
                 outside += 1

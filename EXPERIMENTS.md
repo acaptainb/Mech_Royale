@@ -27,7 +27,13 @@ Practice seeds are fixed for the whole event and the bot is deterministic. A ver
 | no-mortar | `no-mortar` | `df1be152ba1bee40a368979ccb01eef1b7f9b347` | `3b290b0` (2.63) | 2.58 | -0.05 |
 | lead-shots | `lead-shots` | `4d8a32d3c453d3efb430baddb4bd141678417d77` | `3b290b0` (2.63) | **2.90** | +0.27 |
 | lead-shots + no-mortar | `lead-no-mortar` | `23b95d79841b9b2368f72f879c158d9084f065b1` | `4d8a32d` (2.90) | not submitted (no-mortar lost) | n/a |
-| crossing-fire | `crossing-fire` | this commit (tag `crossing-fire-candidate`) | `4d8a32d` (2.90) | pending | pending |
+| crossing-fire | `crossing-fire` | `c1200411b37163ea2496aefbb861a496d2bcea12` | `4d8a32d` (2.90) | **2.94** (entered in the final) | +0.04 |
+| offense-upgrades | `offense-upgrades` | `bb0e5e0dc51f8f75356a726230ca080da66706d3` | `4d8a32d` (2.90) | 2.85 | -0.05 |
+| laser-cover | `laser-cover` | `1961af48491445c4d10d88c767f901d163a98668` | `4d8a32d` (2.90) | 2.90 | +0.00 (exactly the parent: most likely never fired) |
+| chase-wounded | `chase-wounded` | `ef880813566961c48504d37db14e2e8234a8f3ef` | `4d8a32d` (2.90) | 2.75 | -0.15 (moving toward opponents lost) |
+| plating-first | `plating-first` | `4ec3f8a664f39b2d0922f00b21a44ff3a7336575` | `c120041` (2.94) | pending | pending |
+| sensors-first | `sensors-first` | `71cda0dd1792272d8dcc3fbf053fc4f004502d7a` | `c120041` (2.94) | pending | pending |
+| break-sight | `break-sight` | this commit (tag `break-sight-candidate`) | `c120041` (2.94) | pending | pending |
 
 ## Log
 
@@ -47,8 +53,12 @@ Practice seeds are fixed for the whole event and the bot is deterministic. A ver
 | duel-weave | `3b290b0` | not a candidate | angling the waypoint 20 degrees, alternating sides, in a clear duel keeps progress and cuts hits | eligible on 115 of 300 recording decisions; the move changed on all 115 | 16 held-out routes: 16/16 finished, but 570 hits vs 554 for 2.63 and safety 0.8 s later | not submitted | gate not passed: more hits than 2.63 |
 | lead-shots | `3b290b0` | this commit (tag `lead-shots-candidate`) | aiming the gun where a moving opponent will be when the bullet arrives lands more hits, so we kill more of the house bots that hunt us before we die | every decision with a moving opponent: aim led on 169 of 300 recording decisions | hits 56 to 109 of 130 shots (43% to 84%) in a closed-loop gunfight; never fewer; laser still released onto a moving target; only the aim changes | **2.90 (+0.27)** | **keep: best score so far** |
 | lead-shots + no-mortar | `4d8a32d` | this commit (tag `lead-no-mortar-candidate`) | not carrying a mortar adds to leading the gun | as in no-mortar | the no-mortar trial against `4d8a32d` matches no-mortar's own result; the lead trial against `3b290b0` matches lead-shots exactly (109 of 130) | not submitted | dropped: no-mortar alone scored 2.58 |
-| crossing-fire | `4d8a32d` | this commit (tag `crossing-fire-candidate`) | now that the gun is led, firing on passive opponents that unled shots would have missed lands hits v6 gave away | 8 of 300 recording decisions (all of v6's "passive, shots would miss" holds); every passive opponent walking across our view in a match | passive crossing opponents: 0 to 9-14 hits per 6 s (80-93%); zigzagging: 60-67%; controls identical; only the fire command changes | pending | pending your score |
+| crossing-fire | `4d8a32d` | `c120041` (tag `crossing-fire-candidate`) | now that the gun is led, firing on passive opponents that unled shots would have missed lands hits v6 gave away | 8 of 300 recording decisions (all of v6's "passive, shots would miss" holds); every passive opponent walking across our view in a match | passive crossing opponents: 0 to 9-14 hits per 6 s (80-93%); zigzagging: 60-67%; controls identical; only the fire command changes | **2.94 (+0.04)** | **keep: best score; parent of break-sight, plating-first and sensors-first** |
 | no-mortar | `3b290b0` | `df1be15` (tag `no-mortar-candidate`) | never carrying a mortar helps: we cannot aim it, and holding one makes every laser hit on us cook off for +60% | whenever v5 would detour for or walk over a mortar (a third of floor weapons); 0 on the recording (no mortar within 70 m) | never carries a mortar in any layout; takes a laser instead when one is near; control identical | 2.58 (-0.05) | revert: the mortar is worth carrying (see below) |
+| offense-upgrades | `4d8a32d` | `bb0e5e0` (tag `offense-upgrades-candidate`) | taking gun and held-weapon upgrades before defensive ones at offers kills faster | every offer that lists a weapon upgrade | picks changed as specified; controls identical | 2.85 (-0.05) | revert: defence-first upgrades are worth more |
+| laser-cover | `4d8a32d` | `1961af4` (tag `laser-cover-candidate`) | stepping behind cover while a mech charges a laser at us avoids hitscan hits | 0 on the recording (no charging mech listed) | fewer laser hits in the closed-loop duel; controls identical | 2.90 (+0.00) | neutral: exactly the parent's score, so it most likely never fired in the fixed matches |
+| chase-wounded | `4d8a32d` | `ef88081` (tag `chase-wounded-candidate`) | closing on a lone opponent below 35% HP converts more kills | 0 on the recording (lowest opponent 73% HP) | kills within 10 s 5 to 7 in the chase trial | 2.75 (-0.15) | revert: walking toward opponents loses placement |
+| break-sight | `c120041` | this commit (tag `break-sight-candidate`) | when losing a fight (hit by a mech while below 55% HP or with two or more mechs listed), moving behind solid cover from every opponent and standing there until HP regenerates keeps us alive longer, so more house bots die before we do | 89 of 300 recording decisions (2 episodes); every losing fight near cover in a match | 6 closed-loop losing fights: deaths 5 to 1, damage taken 6,144 to 4,928, damage dealt 6,660 to 5,895, kills 1 to 0; controls identical | pending | pending your score |
 
 ## v6: selective engagement
 
@@ -285,6 +295,71 @@ Evidence (`py tools/crossing_fire_trial.py`: the lead-shots gunfight with oppone
   - "committed" lasts 3 s after our hit.
 - **Narrowed recording checks:** the lead trial ignores fire, and the laser trial ignores this both-slots opening fire.
 - **Other checks:** the laser trial against v8, the engagement held-out seeds, the dodge trial, combo check, objective checks, route, pickup and target trials, the probe and `verify.py` all pass.
+
+## break-sight (on `c120041`, crossing-fire, the 2.94 commit)
+
+**Why:**
+- Placement is the whole score: each match gives 16 − place, and place is the order of deaths.
+- The house bots never fight each other, so the only places we gain come from mechs that die before we do.
+- Moving toward opponents lost (chase-wounded scored 2.75), and every losing exchange we stay in costs us time alive.
+- Regeneration is 45 HP/s, but only after 5 s without dealing or taking damage, so it needs us out of sight.
+
+**Change (`breaksight.py`, called in `bot.py` before the dodge):**
+- **Trigger:** a game mech (id 0–99) damaged us within the last 1.5 s, and either our HP is below 55% of max or two or more game mechs are listed.
+- **Episode:** it runs until any of these happens:
+  - HP is back to the larger of 85% of max and the HP it started at;
+  - the zone return becomes urgent, or we are outside the zone (urgent zone return always wins);
+  - 20 s pass.
+- **Where to go:** the nearest point on rings of 3, 5, 7, 10, 14, 18 and 24 m (16 directions) that is:
+  - reachable on the ground grid (`nav.clear_segment`);
+  - inside the current and next circle with 3 m to spare;
+  - hidden by solid matter (`cover.py`, the engagement's 4 m threshold) from the eye of every listed game mech, and of each recent attacker no longer listed. For an unlisted attacker it uses the last seen position, or a point 100 m along the damage bearing if it was never seen.
+
+  Among equally near points it takes the one farthest from the nearest observer. It boosts there while energy stays above 20.
+- **While hidden:** it stands still (move [0, 0], boost off) and searches again if the spot stops being hidden. One decision examines at most 2 rings (a fixed count, so the answer time stays bounded and deterministic: p99 5.5 ms, max 7 ms on this machine during the trial's searches), so a full search spans up to 4 decisions. After a search that finds nothing, the next one waits 0.3 s, and normal movement stands meanwhile.
+- **Unchanged:** aim and fire (the engagement already holds fire "behind cover"), and the v8 dodge keeps the final say. While the rule steers, the inherited stuck detector is reset, so a deliberate wait does not set off its sideways jump.
+- **Counters:** `Bot.break_sight.counts` holds episodes, cover moves started, hidden, no cover found, search continues next decision, the three end reasons (healed / zone return urgent / 20 s limit) and decisions steered.
+
+**Trial (`tools/break_sight_trial.py`):** crossing-fire exported from `c120041` against this tree, both as real `bot.py` processes from identical starts. Each case is a 40 s closed-loop gunfight near buildings.
+- **Shooters:** scripted gun mechs with 1400 HP and our gun's numbers. They lead their shots whenever their eye has a clear line to our body. "Hunt" shooters always know where we are and walk the navigation grid toward us until they see us.
+- **World:** bullets stop at solid matter, rear hits deal ×1.5, and every mech regenerates after 5 s out of combat.
+- **What the bot lists:** what it can see (45 m all round, 200 m inside the 120° wedge), kept for 5 s after losing sight.
+
+| Case | HP at 10/20/30/40 s (base / cand) | Taken | Dealt | Kills | Died at s |
+| --- | --- | --- | --- | --- | --- |
+| 1 shooter 100 m, hold, HP 50% | 205/0/0/0 / 610/1035/626/0 | 878 / 1485 | 900 / 1125 | 0 / 0 | 13.6 / 35.7 |
+| 1 shooter 100 m, hunts us, HP 50% | 205/0/0/0 / 700/981/666/736 | 878 / 518 | 900 / 855 | 0 / 0 | 13.3 / – |
+| 1 shooter 60 m, hold, HP 50% | 0/0/0/0 / 700/1150/702/1076 | 720 / 675 | 585 / 585 | 0 / 0 | 6.5 / – |
+| 1 shooter 150 m, hold, HP 50% | 432/387/228/678 / 657/1067/806/626 | 788 / 810 | 1440 / 1485 | 1 / 0 | – / – |
+| 2 shooters 80/120 m, hold, full HP | 500/230/0/0 / 1355/950/320/230 | 1440 / 1350 | 1305 / 1215 | 0 / 0 | 22.9 / – |
+| 2 shooters 80/120 m, hunt us, full HP | 455/230/0/0 / 1400/1400/1400/1400 | 1440 / 90 | 1530 / 630 | 0 / 0 | 21.6 / – |
+| **activating cases, total** | | **6,144 / 4,928** | **6,660 / 5,895** | **1 / 0** | **5 / 1 deaths** |
+
+Controls and checks:
+- **1 shooter at 100 m, full HP (hold, and hunt):** identical while HP stays at or above 55%, for 109 and 100 decisions.
+- **No attacker at 50% HP:** identical on all 120 decisions.
+- **Urgent zone return while shot at:** identical on all 60 decisions.
+- **Bullet on course while the rule steers:** the dodge wins, with the same move as crossing-fire.
+
+**Trace** (1 shooter at 100 m, hold, HP 50%):
+- Both builds walk the same route until the shooter's hits take us below 55%.
+- t=4.3 s (700 HP): break-sight turns back and boosts about 20 m to behind a building it had just passed. It stands hidden from t=5.5 s at 610 HP.
+- Regeneration starts 5 s after the last hit. At t=23.5 s it reaches 1193 HP (85%), resumes the route, and is under fire again by t=25 s. It dies at 35.7 s.
+- crossing-fire stays on its route in the open and dies at 13.6 s.
+
+**Costs:**
+- Fewer kills and less damage dealt, because a hidden mech does not shoot.
+- No hidden point within 24 m when an opponent keeps its line on our hiding spot, or when many opponents sit at different bearings.
+- In the "full HP, hunts us" control, once below 55% the candidate hid, came back at 85% and died at 37.0 s. In the same case crossing-fire killed the shooter and survived.
+- The duel world is simplified; only the official score judges placement.
+
+**Recording:** 2 episodes and 89 decisions steered. One episode reached a hidden spot and one ended at the 20 s limit; 17 searches found no cover. The recording does not react to our moves, so a real match would look different. Move, boost or jump differs on those 89 decisions, and any other command on 0 of 300. Round trip p99 1.1 ms.
+
+**Narrowed checks** (each flagged the intended movement change):
+- **`tools/engagement_trial.py`, `tools/crossing_fire_trial.py`, `tools/lead_trial.py`:** on the recording, move, boost and jump are no longer compared on the 89 decisions where an in-process copy of the candidate reports break-sight steering. Every other command, and every command on every other decision, must still match. None of the 965 scripted engagement decisions are break-sight decisions.
+- **`tools/dodge_trial.py`:** the reactive episodes now report our HP on a large pool (HP + 26,600 out of 28,000). That world never kills and its bullets ignore cover, so hiding there only stopped routes. Earlier versions only read HP decreases, so:
+  - crossing-fire's reactive tables are identical under the old and the narrowed trial;
+  - break-sight's tables are identical to crossing-fire's: hits 441 to 404 on the tuning set and 596 to 554 held-out, 0 routes unfinished.
 
 ## Next experiment: laser trigger discipline (#3)
 

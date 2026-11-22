@@ -2,6 +2,7 @@
 import math
 
 import mechfight as mf
+from breaksight import BreakSight
 from cover import Cover
 from dodge import Dodge
 from first_run import Bot as FirstRun
@@ -12,7 +13,7 @@ from targeting import Engagement
 
 
 class Bot(FirstRun):
-    name = "zone-runner-crossing-fire"
+    name = "zone-runner-break-sight"
 
     def __init__(self, hello):
         super().__init__(hello)
@@ -21,6 +22,7 @@ class Bot(FirstRun):
         self.loot = PickupDetour(hello)
         self.engagement = Engagement(hello, Cover())
         self.dodge = Dodge(hello, self.nav)
+        self.break_sight = BreakSight(hello, self.nav, self.engagement.cover)
 
     def act(self, obs):
         action = super().act(obs)
@@ -58,6 +60,12 @@ class Bot(FirstRun):
         walk_time = max(0,distance_to_safe) / max(1,me["stats"]["walk_speed"])
         late = distance_to_safe > 0 and obs["t"] + walk_time + 4 > zone["shrink_start"]
         action["boost"] = (late or not me["in_zone"]) and me["energy"] > 15
+        # break-sight: losing a fight (hit by a mech while below 55% HP or with two or more
+        # mechs listed), move behind solid cover from every opponent and stand there until HP
+        # regenerates. Urgent zone return wins; runs before the dodge, which keeps the final say.
+        if self.break_sight.steer(obs, action, urgent=mode == "return" or late or not me["in_zone"]):
+            # A deliberate wait is not a jam: keep the inherited stuck detector from firing.
+            self.sample_pos, self.detour_until = None, 0.0
         # v8: one brief sideways step when a visible bullet is on course to hit us,
         # never while the zone return is urgent.
         self.dodge.steer(obs, action, urgent=mode == "return" or late or not me["in_zone"])

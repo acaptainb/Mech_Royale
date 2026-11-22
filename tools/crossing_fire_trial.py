@@ -66,22 +66,27 @@ def main():
     mf.draw.line = mf.draw.point = mf.draw.label = lambda *args: None
     from bot import Bot
     local = Bot(et.HELLO)
-    reasons = {}
+    reasons, steered = {}, []
     for obs in et.STREAM:
         local.act(copy.deepcopy(obs))
+        # break-sight: move, boost and jump may differ on decisions where that rule steers
+        sight = getattr(local, "break_sight", None)
+        steered.append(bool(sight and sight.active))
         r = local.engagement.decision.get("reason")
         if obs["mechs"]:
             reasons[r] = reasons.get(r, 0) + 1
     base_bot, cand_bot = BotProcess(folder, et.HELLO), BotProcess(ROOT, et.HELLO)
     fire_diff = other_diff = 0
-    for obs in et.STREAM:
+    for k, obs in enumerate(et.STREAM):
         a, c = base_bot.act(copy.deepcopy(obs)), cand_bot.act(copy.deepcopy(obs))
         fire_diff += a.get("fire") != c.get("fire")
-        rest = lambda x: {k: v for k, v in x.items() if k not in ("fire", "tick", "debug")}
+        skip = ("fire", "tick", "debug") + (("move", "boost", "jump") if steered[k] else ())
+        rest = lambda x: {key: v for key, v in x.items() if key not in skip}
         other_diff += rest(a) != rest(c)
     base_bot.close()
     cand_bot.close()
-    print(f"\nrecording: fire differs on {fire_diff} of {len(et.STREAM)} decisions; any other command differs on {other_diff}")
+    print(f"\nrecording: fire differs on {fire_diff} of {len(et.STREAM)} decisions; any other command differs on {other_diff}"
+          f" (move, boost and jump not compared on the {sum(steered)} break-sight decisions)")
     print("  candidate reasons while a mech is listed:", ", ".join(f"{k} {v}" for k, v in sorted(reasons.items())))
     if other_diff:
         failures.append("recording: a command other than fire changed")
