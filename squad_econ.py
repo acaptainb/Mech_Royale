@@ -178,10 +178,12 @@ class Economy:
     wins. Every candidate must be within LOOT_MAX_M, inside the current circle with ZONE_EDGE_M to
     spare, reachable before its zone deadline, no more than ELEVATED_M above the terrain (no
     roofs or decks) and near a walkable grid cell.
-    - cubes within CUBE_RANGE_M: value 75, or 25 once we hold CUBE_CAP cubes; always allowed;
+    - cubes within CUBE_RANGE_M: value 75, or 25 once we hold CUBE_CAP cubes; always allowed,
+      under threat too;
     - crates within CRATE_RANGE_M (0.6 x the cube value) and drones seen in the last DRONE_SEEN_S
-      within DRONE_RANGE_M (value 85, under CUBE_CAP cubes): only above FARM_HP of our HP and
-      with no danger (an engaged mech seen in the last 2.5 s, or any hit in the last 4 s).
+      within DRONE_RANGE_M (value 85, under CUBE_CAP cubes): only above FARM_HP of our HP, with
+      no danger (an engaged mech seen in the last 2.5 s, or any hit in the last 4 s) and no
+      threat (Squad.plan asks for cubes only then).
     After following one item for GIVE_UP_S it is banned for BAN_S.
     """
     LOOT_MAX_M = 260.0
@@ -361,8 +363,7 @@ class Economy:
                 or any(now - t <= self.DANGER_SEEN_S + 1e-9 for t in self.engaged_at.values()))
 
     def threat(self, now):
-        """A listed mech hunting us, or a mech hit in the last 4 s: the normal engagement owns
-        the bot and no loot is followed."""
+        """A listed mech hunting us, or a mech hit in the last 4 s: only cubes are followed."""
         return bool(self.engaged_now) or now - self.mech_hurt_at <= self.DANGER_HIT_S + 1e-9
 
     # --- choice --------------------------------------------------------------------------
@@ -402,8 +403,13 @@ class Economy:
         self.target = None
         self.dest = None
 
-    def choose(self, obs, zone):
-        """The (kind, id) to follow, or None."""
+    def cube_reachable(self, key, at):
+        """The loot rules' ground checks for a cube: not on a roof or deck, and near a walkable
+        grid cell. The mid-fight cube grab (squad_move.py) asks this too."""
+        return not self.elevated(("cube", key), at) and self.reachable(("cube", key), at)
+
+    def choose(self, obs, zone, cubes_only=False):
+        """The (kind, id) to follow, or None. cubes_only: crates and drones are left out."""
         me, now = obs["self"], obs["t"]
         pos = me["pos"]
         live = obs["zone"]
@@ -414,7 +420,7 @@ class Economy:
         cubes = me.get("cubes", 0) or 0
         cube_value = self.CUBE_VALUE if cubes < self.CUBE_CAP else self.CUBE_VALUE_CAPPED
         top = me.get("max_hp") or 1
-        farm = me.get("hp", 0) / top > self.FARM_HP and not self.danger(now)
+        farm = me.get("hp", 0) / top > self.FARM_HP and not self.danger(now) and not cubes_only
         best, best_utility = None, 0.0
 
         def consider(key, at, limit, value, moves):
@@ -577,10 +583,11 @@ class Squad:
 
     plan() picks the first that applies: the stuck recovery; zone must (boost when it is tight);
     the fight part (squad_move.py: the LoseRule retreat, the fight move and the mid-fight cube
-    grab); the inherited supply-drop and relocate-after-damage objectives; zone should; the weapon
-    pickup detour (squad_fire.py's wishes, loot.py); loot (only with no mech hunting us, no mech
-    hit in 4 s and no mech target); otherwise walk to the zone goal and stand still within
-    ARRIVE_M of it. The bullet and shell dodges still have the last word on the move in bot.py.
+    grab); the pickup detour to a laser (loot.py); zone should; the detour to any other wanted
+    weapon (squad_fire.py's wishes); loot (cubes only while a mech hunts us, a mech hit us in
+    the last 4 s or there is a mech target); otherwise walk to the zone goal and stand still
+    within ARRIVE_M of it. Supply drops and the relocate hop after damage are not followed in
+    practice mode. The bullet and shell dodges still have the last word on the move in bot.py.
     """
     ARRIVE_M = 3.0
     ZONE_MOVE_M = 2.0       # zone must and should only move us when the goal is this far
@@ -601,10 +608,11 @@ class Squad:
         self.shot = None
         self.modes = {}         # mode -> decisions, for the local reports
 
-    def plan(self, obs, busy, objectives, parent_waypoint, detour_waypoint, fight=None):
+    def plan(self, obs, busy, detour_waypoint, fight=None, laser=False):
         """Return {move, boost, jump, urgent} for this decision; remembers any loot shot.
-        busy: squad_fire.py has a mech target. fight(goal) is the fight part: {mode, move, boost}
-        or None to fall through to the rules below it."""
+        busy: squad_fire.py has a mech target. detour_waypoint: the next point of the weapon
+        pickup detour, or None; laser: that detour is for a laser. fight(goal) is the fight part:
+        {mode, move, boost} or None to fall through to the rules below it."""
         now, me = obs["t"], obs["self"]
         pos = me["pos"]
         zone = self.zone.update(obs)
@@ -621,14 +629,18 @@ class Squad:
             boost = urgent = zone["hurry"] and me.get("energy", 0) > self.BOOST_ENERGY
         elif fight is not None and (step := fight(zone["goal"])) is not None:
             mode, move, boost = step["mode"], step["move"], step["boost"]
-        elif objectives.mode in ("drop", "relocate"):
-            mode, move = objectives.mode, unit_toward(pos, parent_waypoint)
+        elif detour_waypoint is not None and laser:
+            # The laser is worth more than an early start toward the zone goal; the pickup
+            # detour's own timing rule and zone must still bring us back in time.
+            mode, move = "pickup", unit_toward(pos, detour_waypoint)
         elif zone["should"] and zone["distance"] > self.ZONE_MOVE_M:
             mode, move = "zone should", self.walk_to_goal(pos, zone)
         elif detour_waypoint is not None:
             mode, move = "pickup", unit_toward(pos, detour_waypoint)
         else:
-            key = None if threat else economy.choose(obs, self.zone)
+            # Under threat (a mech hunting us, a mech hit in the last 4 s, or a target) only
+            # cubes are worth the walk; crates and drones wait until it is calm.
+            key = economy.choose(obs, self.zone, cubes_only=threat)
             if key is not None:
                 self.target = key
                 move, self.shot = economy.approach(obs, key, self.lead)

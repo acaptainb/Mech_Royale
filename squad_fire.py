@@ -54,7 +54,7 @@ class SquadFire:
     Triggers: the gun fires when its lead point is within reach of the torso this tick; the
     laser is held while a target is in reach and let go early when the charge already kills,
     or at full charge once the torso is on the body; lightning fires only inside its range and
-    cone with energy for the shot.
+    cone with energy for the shot. A held mortar is never fired in practice mode.
     """
     # engagement
     NEAR_M = 60.0
@@ -92,6 +92,7 @@ class SquadFire:
     LASER_REACH = 0.97
     FULL_MARGIN_S = 0.051   # a charge this close to full counts as full
     DIRECT_AFTER = 0.45     # past this fraction of a full charge the torso goes to the direct point
+    DECISION_S = 0.1        # charge gained by the next decision while the trigger is held
     LETHAL_MARGIN = 0.8     # armour and rear hits are not modelled; this is the safety factor
     LASER_YAW_FACTOR = 0.9
     DIRECT_LEAD_S = 0.125   # target motion added to the direct aim point
@@ -293,8 +294,24 @@ class SquadFire:
                 and abs(wrap(direct_yaw - actual[0])) < cone
                 and energy >= stats.get("energy", 3))
 
+    def lethal(self, stats, charge, target, cubes):
+        """True when a beam released at `charge` seconds kills `target` by the lethal-release
+        rule (the minimum charge reached, LETHAL_MARGIN x predicted damage >= its HP)."""
+        if charge < stats.get("min_charge", 0.15):
+            return False
+        full = stats.get("charge", 0.75)
+        low = stats.get("min_frac", 0.35)
+        damage = stats.get("damage", 315) * (low + (1 - low) * min(charge, full) / full)
+        damage *= 1 + self.damage_per_cube * min(cubes, self.cube_cap)
+        if "mortar" in (target.get("weapons") or ()):
+            damage *= 1 + stats.get("cookoff", 0.6)
+        hp, _ = self.health(target)
+        return self.LETHAL_MARGIN * damage >= hp
+
     def laser_plan(self, laser, target, distance, direct, actual, cubes):
-        """(hold the trigger, aim at the direct point, lethal early release) for a mech target."""
+        """(hold the trigger, aim at the direct point, lethal early release) for a mech target.
+        The torso moves to the direct point past DIRECT_AFTER of a full charge, or as soon as
+        the charge on the next decision would already be lethal, so it is on the body by then."""
         stats = self.stats(laser)
         full = stats.get("charge", 0.75)
         if distance > self.LASER_REACH * stats.get("range", 280):
@@ -306,16 +323,10 @@ class SquadFire:
                    and abs(direct[1] - actual[1]) < tol_pitch)
         if charge >= full - self.FULL_MARGIN_S:
             return not aligned, True, False
-        if charge >= stats.get("min_charge", 0.15):
-            low = stats.get("min_frac", 0.35)
-            damage = stats.get("damage", 315) * (low + (1 - low) * charge / full)
-            damage *= 1 + self.damage_per_cube * min(cubes, self.cube_cap)
-            if "mortar" in (target.get("weapons") or ()):
-                damage *= 1 + stats.get("cookoff", 0.6)
-            hp, _ = self.health(target)
-            if self.LETHAL_MARGIN * damage >= hp and aligned:
-                return False, True, True
-        return True, charge > self.DIRECT_AFTER * full, False
+        if aligned and self.lethal(stats, charge, target, cubes):
+            return False, True, True
+        soon = self.lethal(stats, charge + self.DECISION_S, target, cubes)
+        return True, soon or charge > self.DIRECT_AFTER * full, False
 
     # --- decision ----------------------------------------------------------------------------
 
@@ -323,8 +334,10 @@ class SquadFire:
         """Return {target, reason, aim, fire, reload}. `parent` is the v6 engagement's decision for
         this observation (its farming shots are kept); `pickup` is the pickup detour's point.
         aim None keeps the aim already in the action. nearest is the closest engaged listed mech,
-        which squad_move.py fights when no target has a line of fire. observe() must have seen this
-        observation (bot.py calls it on every decision, so hits from before the mode started count)."""
+        for local reports: squad_move.py fights only the target (a line of fire within
+        MAX_TARGET_M), and with no target the idle aim faces the engaged mech instead. observe()
+        must have seen this observation (bot.py calls it on every decision, so hits from before
+        the mode started count)."""
         now, me = obs["t"], obs["self"]
         pos = me["pos"]
         me_stats = me.get("stats") or {}
@@ -408,7 +421,9 @@ class SquadFire:
         fire = [False, False]
         for slot, weapon in enumerate(slots):
             kind = weapon.get("kind") if weapon else None
-            if kind == "gun" or kind == "mortar":
+            # A held mortar is never fired: its shell would follow the gun's flat aim, and close
+            # in the splash catches us as well. It stays False like an empty slot.
+            if kind == "gun":
                 fire[slot] = gun_on
             elif kind == "lightning":
                 fire[slot] = self.lightning_fires(weapon, distance, direct[0], actual, me.get("energy", 0))

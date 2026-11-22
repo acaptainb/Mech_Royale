@@ -15,9 +15,12 @@
    deaths with and without our kill events: no exception, a JSON action, finite move and aim,
    two boolean triggers, and nothing swallowed by squad_move.py's guard.
 4. With squad_econ.py: the movement priority in practice mode, read from the debug label in
-   scripted decisions (stuck > zone must > retreat > fight > zone should > the laser detour >
+   scripted decisions (stuck > zone must > retreat > fight > the laser detour > zone should >
    loot > camp), the loot shot only without a mech target, no fight or stare at an unengaged
-   mech, and the bullet dodge still having the last word.
+   mech, and the bullet dodge still having the last word. Then the fixes: no fight move
+   toward an engaged mech without a line of fire or beyond 240 m (it is only faced); the
+   laser detour held through a drone hit and while the laser is out of view; no supply-drop
+   or relocate move; cubes (never crates) collected under threat.
 Standard library only.
 """
 import copy
@@ -425,9 +428,12 @@ def fuzz(matches=6, length=1000, seed=31):
 
 # --- 4. movement priority (with squad_econ.py) ---------------------------------------------------
 
-def pframe(k, mechs=(), hp=1400.0, crates=(), cubes=(), pickups=(), in_zone=True, zone=None, projectiles=()):
-    """A practice-mode decision (t = 30 s + 0.1 s per decision) on the open lawn."""
-    obs = et.frame(k, mechs, [], in_zone=in_zone, hp=hp, pickups=pickups)
+def pframe(k, mechs=(), hp=1400.0, crates=(), cubes=(), pickups=(), in_zone=True, zone=None, projectiles=(),
+           origin=HOME, events=(), drops=()):
+    """A practice-mode decision (t = 30 s + 0.1 s per decision), on the open lawn unless `origin`
+    says otherwise (the zone is centred there unless `zone` moves it)."""
+    obs = et.frame(k, mechs, events, in_zone=in_zone, hp=hp, pickups=pickups, origin=origin)
+    obs["drops"] = copy.deepcopy(list(drops))
     obs["t"] = round(30.0 + 0.1 * k, 2)
     obs["tick"] = 600 + 2 * k
     obs["alive"] = 16
@@ -459,6 +465,34 @@ def scripted(make, n, frozen=False):
         last = action
     bot.close()
     return rows
+
+
+def walked(make, n, start=HOME):
+    """Like scripted(), but our mech walks where the bot steers it (walk speed, walls from the
+    ground grid) and the torso is where the bot last aimed it. make(k, here) builds decision k
+    at our position. Returns [(obs, action, debug label)] and the final position."""
+    bot = BotProcess(ROOT, et.HELLO)
+    rows, last, here, vel = [], {}, tuple(start), [0.0, 0.0, 0.0]
+    for k in range(n):
+        obs = make(k, here)
+        if last.get("aim"):
+            obs["self"]["aim"] = list(last["aim"])
+        obs["self"]["vel"] = list(vel)
+        action = bot.act(obs)
+        rows.append((obs, action, (action.get("debug") or {}).get("label", "")))
+        last = action
+        move = action.get("move") or [0.0, 0.0]
+        length = math.hypot(*move)
+        if length > 1:
+            move = [move[0] / length, move[1] / length]
+        step = MECH["walk_speed"] * 0.1
+        nxt = (here[0] + move[0] * step, here[1] + move[1] * step)
+        vel = [0.0, 0.0, 0.0]
+        if dt.walkable(nxt):
+            here = nxt
+            vel = [move[0] * MECH["walk_speed"], move[1] * MECH["walk_speed"], 0.0]
+    bot.close()
+    return rows, here
 
 
 def priority():
@@ -527,6 +561,60 @@ def priority():
     case(f"the bullet dodge keeps the last word (fight move {[round(v, 2) for v in before]},"
          f" with a bullet on course {[round(v, 2) for v in after]})", dodged[5:],
          after != before and across < 0.2 and math.hypot(*after) > 0.9)
+
+    print("   the fixes:")
+    wrap = lambda a: (a + math.pi) % math.tau - math.pi
+    camping = lambda rows: all(label == "squad camp" for _, _, label in rows)
+
+    def faces(rows, other):
+        here = rows[0][0]["self"]["pos"]
+        yaw = math.atan2(other["pos"][1] - here[1], other["pos"][0] - here[0])
+        return all(abs(wrap(action["aim"][0] - yaw)) < 0.01 for _, action, _ in rows[1:])
+    # Only the target is fought: engaged, with a line of fire, within 240 m.
+    origin, cover_bearing, cover_distance, clear_bearing = et.COVER_SPOT
+    hidden = mech(9, origin, cover_bearing, cover_distance, aim_at_us=True)
+    rows = scripted(lambda k: pframe(k, [hidden], origin=origin), 10)
+    case(f"an engaged mech with no line of fire ({cover_distance} m, behind cover, aiming at us) is faced,"
+         f" not walked to", rows, camping(rows) and faces(rows, hidden))
+    far = mech(5, HOME, OPEN, 262)
+    rows = scripted(lambda k: pframe(k, [far], events=[et.damaged(5, OPEN, weapon="laser")] if k == 0 else []), 10)
+    case("a mech that hit us from 262 m (beyond 240 m) is faced, not walked to", rows,
+         camping(rows) and faces(rows, far))
+    # The laser detour: above zone should, through damage, and while the laser is out of view.
+    rows = scripted(lambda k: pframe(k, pickups=[dict(id=8002, kind="laser", pos=at(HOME, OPEN + 180, 30))],
+                                     zone=should), 10)
+    case("the laser detour outranks zone should (shrink in 5 s, the laser 30 m away inside the next circle)", rows,
+         all(label == "squad pickup" for _, _, label in rows))
+    calm = dict(center=list(HOME), radius=400.0, next_center=list(HOME), next_radius=250.0, shrink_start=1000.0,
+                shrink_end=1050.0)
+    laser_far = dict(id=8003, kind="laser", pos=at(HOME, OPEN, 110))
+    drone_hit = dict(type="damaged", amount=25, weapon="npc", by=104, bearing=1.0)
+    rows, end = walked(lambda k, here: pframe(k, pickups=[laser_far], origin=here, zone=calm,
+                                             hp=1400.0 if k < 10 else 1375.0,
+                                             events=[drone_hit] if k == 10 else []), 40)
+    left = math.dist(end, laser_far["pos"][:2])
+    case(f"the laser detour holds through a drone hit at 1 s (laser 110 m away; {left:.0f} m left after 4 s)", rows,
+         all(label == "squad pickup" for _, _, label in rows) and left < 70)
+    laser_unseen = dict(id=8004, kind="laser", pos=at(HOME, OPEN, 200))
+    rows, end = walked(lambda k, here: pframe(k, pickups=[laser_unseen] if k < 3 else [], origin=here, zone=calm), 60)
+    left = math.dist(end, laser_unseen["pos"][:2])
+    pursuing = sum(label == "squad pickup" for _, _, label in rows)
+    case(f"a laser 200 m away listed on the first 3 decisions only is still followed ({pursuing}/60 decisions,"
+         f" {left:.0f} m left after 6 s)", rows, all(label == "squad pickup" for _, _, label in rows[20:]) and left < 150)
+    # No supply drop or relocate hop.
+    drop = dict(id=20000, pos=at(HOME, OPEN, 30), radius=8, lands_in=0.0, capture_s=4, progress=0, holder=None)
+    rows = scripted(lambda k: pframe(k, hp=840.0, drops=[drop]), 10)
+    case("no supply-drop move (HP 60%, a drop on the ground 30 m away)", rows, camping(rows))
+    rows = scripted(lambda k: pframe(k, hp=1400.0 if k < 2 else 1355.0,
+                                     events=[et.damaged(104, OPEN, weapon="npc")] if k == 2 else []), 10)
+    case("no relocate hop after damage (a drone hit at 0.2 s)", rows, camping(rows))
+    # Cubes still count under threat; crates do not.
+    spot = at(origin, clear_bearing, 30)
+    rows = scripted(lambda k: pframe(k, [hidden], cubes=[spot], origin=origin), 10)
+    case("a cube 30 m away is collected under threat (the engaged mech behind cover listed)", rows,
+         all(label == "squad loot cube 5001" for _, _, label in rows))
+    rows = scripted(lambda k: pframe(k, [hidden], crates=[spot], origin=origin), 10)
+    case("control: a crate there is left alone under the same threat", rows, camping(rows))
 
 
 def main():

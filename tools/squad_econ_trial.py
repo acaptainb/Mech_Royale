@@ -12,7 +12,8 @@ debug label names its practice-mode plan, which is how activation is read back.
 
 Cases:
 - economy after 180 s (farm-power has stopped farming): a crate at 100 m, a drone at 120 m, a cube
-  at 90 m; no crate or drone farming at 45 % HP or under danger; hysteresis; give-up and ban;
+  at 90 m; no crate or drone farming at 45 % HP or under danger, while cubes still count under
+  threat; hysteresis; give-up and ban;
 - zone: camping at the goal on the inner circle and standing still; zone must over loot;
 - idle aim: the spin while standing, the sweep while moving, the turn to a recent hit;
 - stuck: the recovery fires on time, jumps once, and is deterministic;
@@ -338,6 +339,11 @@ def economy_cases(base, cand, report):
          lambda b, c: not c["crates"] and not c["drones"] and first_time(c, "loot") is None),
         ("crate, unseen mech hit at 0 s", dict(crates=[crate], events=unseen_hit, seconds=25),
          lambda b, c: len(c["crates"]) == 1 and (first_time(c, "loot") or 0) >= 190.0 + 4.0),
+        # Under threat (a mech hit us in the last 4 s) cubes still count; crates wait for calm.
+        ("cube + crate, unseen mech hit at 0 s (cubes count under threat)",
+         dict(cubes=[cube], crates=[crate], events=unseen_hit, seconds=25),
+         lambda b, c: (first_time(c, "loot cube") or 999) < 190.0 + 1.0 and len(c["collected"]) >= 1
+         and (first_time(c, "loot crate") or 999) >= 190.0 + 4.0),
     ]
     print(f"{'economy after 180 s':44}  farm-power | squad-econ")
     for name, kw, check in rows:
@@ -345,6 +351,9 @@ def economy_cases(base, cand, report):
         ok = check(b, c)
         report(name, ok)
         extra = f"; first loot decision at {first_time(c, 'loot'):.1f} s" if "unseen" in name and first_time(c, "loot") else ""
+        if "under threat" in name:
+            extra += (f" (first cube decision {first_time(c, 'loot cube') or '-'} s,"
+                      f" first crate decision {first_time(c, 'loot crate') or '-'} s)")
         print(f"  {'ok  ' if ok else 'FAIL'} {name}\n        farm-power: {fmt(b)}\n        squad-econ: {fmt(c)}{extra}")
 
 

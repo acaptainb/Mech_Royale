@@ -11,7 +11,9 @@ working tree both run as `python -u bot.py`:
    a passive mech at 120 m is ignored (no aim, no shot);
 2. target choice: a weak far mech beats a healthy close one; the current target holds through
    a small change and gives way to a large one;
-3. laser: the lethal early release, the full-charge release only when the torso is on the body;
+3. laser: the lethal early release (also on a strafing target, where the torso must leave the
+   gun's lead point in time), the full-charge release only when the torso is on the body; a
+   held mortar never fired;
 4. loot: laser over lightning, lightning swapped for a laser, far lasers sought, never a mortar;
 5. the upgrade order;
 6. the mode switch: before 20 s, or after a death we did not cause, the parent's answers;
@@ -358,6 +360,41 @@ def laser_trials(folder):
     drone_gun = any(a["fire"][0] for o, a in drone_rows)
     print(f"   a drone that hit us, 60 m: laser never held {no_drone_charge}, gun fires {drone_gun}"
           f"  {check(no_drone_charge and drone_gun, 'laser: never charged at a drone')}")
+
+    # A 150 HP target strafing at 8 m/s, 120 m out: the gun's lead point is off its body, so the
+    # torso must reach the direct point before the lethal charge. It moves there as soon as the
+    # next decision's charge would be lethal, so the beam leaves at the first lethal charge.
+    side = math.radians(OPEN + 90)
+    vel = (8.0 * math.cos(side), 8.0 * math.sin(side))
+
+    def strafer(k):
+        other = opponent(5, OPEN, 120, hp=150, aim_off=0.0, vel=vel)
+        other["pos"][0] += vel[0] * DT * k
+        other["pos"][1] += vel[1] * DT * k
+        return frame(k, [other])
+    firsts = []
+    for folder_ in (folder, ROOT):
+        rows, rig = play(folder_, strafer, 25, aim=(math.radians(OPEN), 0.0), weapons=[et.gun(), laser()])
+        beam = rig.beams[0] if rig.beams else None
+        firsts.append(None if beam is None else (beam[1], lands(beam[2], rows[beam[0]][0]["mechs"][0])))
+    fmt = lambda r: "none" if r is None else f"{r[0]:.2f} s {'on body' if r[1] else 'MISS'}"
+    c = firsts[1]
+    ok = c is not None and need(150) - 1e-9 <= c[0] < 0.4 and c[1]
+    print(f"   {'150 HP target strafing at 8 m/s, 120 m (lead off the body)':48} parent {fmt(firsts[0]):24}"
+          f" squad-fire {fmt(c):24} {check(ok, 'laser: lethal release on a strafing target')}"
+          f" released at the first charge >= {need(150):.3f} s")
+
+    # A held mortar is never fired in practice mode, close (its splash reaches us) or far.
+    for distance in (8, 100):
+        counts = []
+        for folder_ in (folder, ROOT):
+            rows, _ = play(folder_, lambda k, d=distance: frame(k, [opponent(5, OPEN, d, aim_off=0.0)]), 10,
+                           aim=(math.radians(OPEN), 0.0), weapons=[et.gun(), weapon("mortar")])
+            counts.append((sum(bool((a.get("fire") or [False, False])[1]) for o, a in rows),
+                           sum(bool((a.get("fire") or [False])[0]) for o, a in rows)))
+        (bm, bg), (cm, cg) = counts
+        print(f"   gun + mortar, engaged mech at {distance} m: mortar fired on parent {bm}/10, squad-fire {cm}/10;"
+              f" gun fired on squad-fire {cg}/10  {check(cm == 0 and cg > 0, f'mortar: never fired ({distance} m)')}")
 
 
 # --- 4. loot -------------------------------------------------------------------------------------

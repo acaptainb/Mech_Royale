@@ -2,7 +2,12 @@
 
 squad-fire (practice mode, `choose(..., squad=True)`): the detour also runs to swap slot 1 for a
 better weapon (laser over lightning, never a mortar), reaches lasers within 240 m and other
-weapons within 150 m, and ranks them by value per metre. `swap_take` is the matching take rule."""
+weapons within 150 m, and ranks them by value per metre. `swap_take` is the matching take rule.
+
+Practice mode also keeps the pursuit going through a fight nearby: damage and mechs near us or
+the pickup do not end it, and pickups are remembered where they were last seen, forgotten only
+when one should be in view and is not (close by, or a little farther inside the vision wedge,
+with a clear line from our eyes)."""
 import math
 import sys
 from array import array
@@ -33,12 +38,21 @@ class PickupDetour:
     SQUAD_OTHER_M = 150.0   # how far any other wanted weapon is sought
     TAKE_FLAT_M = 3.7       # take reach: pickup radius 4 less a margin
     TAKE_HEIGHT_M = 3.6
+    # Practice mode: a remembered pickup is forgotten when it should be in view and is not.
+    GONE_S = 0.35           # not listed for longer than this
+    GONE_NEAR_M = 40.0      # within this, all round (inside the near vision range)
+    GONE_VIEW_M = 80.0      # within this, inside the vision wedge less GONE_VIEW_MARGIN_RAD
+    GONE_VIEW_MARGIN_RAD = math.radians(8)
+    GONE_LIFT_M = 1.5       # the line from our eyes ends this far above the pickup
 
-    def __init__(self, hello):
+    def __init__(self, hello, cover=None):
         config = hello["config"]
         self.reach = config["loot"]["pickup_radius"]
         self.near_range = config.get("vision", {}).get("near_range", 45)
         self.npc_range = config.get("npc", {}).get("aggro_range", 45)
+        self.fov = math.radians(config.get("vision", {}).get("fov_deg", 120))
+        self.cover = cover      # line tests for the pickup memory; without it, the walkable grid
+        self.memory = {}        # practice mode: pickup id -> {"id", "kind", "pos", "seen"}
         # A second planner keeps the zone route intact while a pickup route is searched.
         self.nav = Navigator()
         self.heights = array("h")
@@ -135,13 +149,46 @@ class PickupDetour:
         worth = 130.0 if me["weapons"][1] is None else 60.0
         return max(worth, 150.0) if kind == "laser" else worth
 
+    def remember(self, obs, prune):
+        """Note every listed pickup (read only in practice mode) and, with `prune`, forget
+        remembered ones that should be in view but are not."""
+        now, me = obs["t"], obs["self"]
+        for pickup in obs["pickups"]:
+            self.memory[pickup["id"]] = dict(id=pickup["id"], kind=pickup["kind"], pos=list(pickup["pos"]), seen=now)
+        if not prune:
+            return
+        pos = me["pos"]
+        eye = [pos[0], pos[1], pos[2] + (me.get("stats") or {}).get("eye_height", 8)]
+        facing = (me.get("aim") or [None])[0]
+        for key in [k for k, item in self.memory.items() if self.gone(item, eye, facing, now)]:
+            del self.memory[key]
+
+    def gone(self, item, eye, facing, now):
+        """Not listed although it should be in view: close by (all-round sensors), or a little
+        farther inside the vision wedge, with nothing solid on the line from our eyes."""
+        if now - item["seen"] <= self.GONE_S:
+            return False
+        at = item["pos"]
+        d = math.hypot(at[0] - eye[0], at[1] - eye[1])
+        if d > self.GONE_VIEW_M:
+            return False
+        if d > self.GONE_NEAR_M:
+            if facing is None:
+                return False
+            off = abs((math.atan2(at[1] - eye[1], at[0] - eye[0]) - facing + math.pi) % math.tau - math.pi)
+            if off > self.fov / 2 - self.GONE_VIEW_MARGIN_RAD:
+                return False
+        if self.cover is None:
+            return self.nav.clear_segment(eye[:2], at[:2])
+        return self.cover.clear(eye, [at[0], at[1], at[2] + self.GONE_LIFT_M], skip_start=0.5, skip_end=0.5)
+
     def squad_candidates(self, obs):
         """Wanted ground pickups within their seek range, best value per metre first:
-        (distance, id, pickup, at)."""
+        (distance, id, pickup, at). Remembered pickups count, seen or not."""
         me = obs["self"]
         pos = me["pos"][:2]
         found = []
-        for pickup in obs["pickups"]:
+        for pickup in self.memory.values():
             if not self.wanted(me, pickup["kind"]):
                 continue
             distance = math.dist(pos, pickup["pos"][:2])
@@ -215,7 +262,10 @@ class PickupDetour:
         return arrive + max(0, gap) / speed + 5 + self.ZONE_MARGIN_S < zone["shrink_start"]
 
     def pressure(self, obs, pos, at=None):
-        """Opponents close to us or the pickup. Distant drones and mechs are not pressure."""
+        """Opponents close to us or the pickup. Distant drones and mechs are not pressure.
+        Practice mode has none: the fight rules decide when a fight outranks the pickup."""
+        if self.squad:
+            return False
         for other in obs["mechs"]:
             where = other["pos"][:2]
             if other["kind"] == "mech":
@@ -232,7 +282,8 @@ class PickupDetour:
         me = obs["self"]
         if objectives.mode != "zone" or not me["in_zone"]:
             return {"drop": "supply_drop", "relocate": "under_fire"}.get(objectives.mode, "zone_return")
-        if obs["t"] < objectives.relocate_until:
+        if obs["t"] < objectives.relocate_until and not self.squad:
+            # Practice mode keeps the pursuit through damage (a drone's shot, a far hunter's).
             return "under_fire"
         if abs(me["pos"][2] - self.ground(me["pos"])) > 4:
             return "off_ground"
@@ -251,6 +302,7 @@ class PickupDetour:
         me, now = obs["self"], obs["t"]
         pos = me["pos"][:2]
         self.squad = squad
+        self.remember(obs, prune=squad)
         if not self.seeking(me):
             if self.target is not None:
                 self.acquired += 1
@@ -282,7 +334,12 @@ class PickupDetour:
             if (event.get("type") == "take_failed" and event.get("id") == target["id"]
                     and event.get("reason") != "range"):
                 return self.drop(FOREVER, "take_failed_" + str(event.get("reason")))
-        if any(pickup["id"] == target["id"] for pickup in obs["pickups"]):
+        if self.squad:
+            # Practice mode: followed while remembered, however long it has been out of view.
+            if target["id"] not in self.memory:
+                return self.drop(FOREVER, "disappeared")
+            target["seen"] = self.memory[target["id"]]["seen"]
+        elif any(pickup["id"] == target["id"] for pickup in obs["pickups"]):
             target["seen"] = now
         else:
             unseen = now - target["seen"]

@@ -24,14 +24,15 @@ from targeting import Engagement
 
 
 class Bot(FirstRun):
-    name = "zone-runner-squad-all-sticky"
+    name = "zone-runner-squad-all-fixed"
 
     def __init__(self, hello):
         super().__init__(hello)
         self.nav = Navigator()
         self.objectives = Objectives()
-        self.loot = PickupDetour(hello)
         self.engagement = Engagement(hello, Cover())
+        # The cover raster lets the practice-mode pickup memory tell when a pickup should be in view.
+        self.loot = PickupDetour(hello, self.engagement.cover)
         self.dodge = Dodge(hello, self.nav)
         self.shell_dodge = ShellDodge(hello, self.nav, self.engagement.cover)
         self.farm = CubeFarm(hello)
@@ -40,6 +41,8 @@ class Bot(FirstRun):
         self.squad_fire = SquadFire(hello, self.engagement)
         self.squad_move = SquadMove(hello, self.engagement.cover, self.engagement.centre)
         self.squad_econ = SquadEcon(hello, self.engagement.cover, self.engagement.lead_point)
+        # The mid-fight cube grab only goes for cubes the loot rules could reach.
+        self.squad_move.cube_check = self.squad_econ.economy.cube_reachable
 
     def act(self, obs):
         action = super().act(obs)
@@ -50,7 +53,8 @@ class Bot(FirstRun):
         self.squad_move.remember(obs)
         me, zone = obs["self"], obs["zone"]
         x, y, z = me["pos"]
-        goal = self.objectives.choose(obs, self.nav)
+        # Practice mode skips the supply-drop and relocate objectives (objectives.py).
+        goal = self.objectives.choose(obs, self.nav, practice=practice)
         mode = self.objectives.mode
         waypoint = self.nav.waypoint(me["pos"], goal)
         # Zone return, supply drops and relocation keep priority: a pickup is only
@@ -146,12 +150,13 @@ class Bot(FirstRun):
         """Practice mode. squad_fire.py decides first (it only reads the observation), so the
         movement knows the target. Movement, highest first: the stuck recovery (squad_econ.py);
         the bullet and shell dodges, which keep the final word as always; zone must; the LoseRule
-        retreat, unless finishing or late; the fight move with the mid-fight cube grab (both
-        squad_move.py, and never during the parent's urgent zone return); the supply-drop and
-        relocate objectives; zone should; the weapon pickup detour (squad_fire.py's wishes);
-        loot; camp or walk to the zone goal. The laser sidestep is blended into any move below
-        zone must. Aim and triggers are squad_fire.py's; the loot shot applies only with nothing
-        to shoot, the idle aim only with no target and no engaged enemy to face."""
+        retreat, unless finishing or late; the fight move against the target with the mid-fight
+        cube grab (both squad_move.py, and never during the parent's urgent zone return); a laser
+        pickup detour; zone should; the detour to any other wanted weapon (squad_fire.py's
+        wishes); loot (cubes only under threat); camp or walk to the zone goal. Supply drops and
+        the relocate hop after damage are not used here. The laser sidestep is blended into any
+        move below zone must. Aim and triggers are squad_fire.py's; the loot shot applies only
+        with nothing to shoot, the idle aim only with no target and no engaged enemy to face."""
         me, zone = obs["self"], obs["zone"]
         x, y, _ = me["pos"]
         # Asked on every decision so its memory and line-of-fire cache stay current; its farming
@@ -163,11 +168,13 @@ class Bot(FirstRun):
         late = distance_to_safe > 0 and obs["t"] + walk_time + 4 > zone["shrink_start"]
         urgent = mode == "return" or late or not me["in_zone"]
         fighter, econ = self.squad_move, self.squad_econ
-        # The mech to fight: the target, else the nearest engaged mech (no line of fire yet).
-        fighter.assess(obs, plan["target"] if plan["target"] is not None else plan["nearest"])
+        # The mech to fight is the target only: engaged, with a line of fire, within 240 m. An
+        # engaged mech without one is faced by the idle aim, never walked to.
+        fighter.assess(obs, plan["target"])
         fight = None if urgent else (lambda goal: fighter.plan(obs, goal))
-        step = econ.plan(obs, plan["target"] is not None, self.objectives, waypoint,
-                         waypoint if pickup is not None else None, fight=fight)
+        laser = pickup is not None and (self.loot.target or {}).get("kind") == "laser"
+        step = econ.plan(obs, plan["target"] is not None, waypoint if pickup is not None else None,
+                         fight=fight, laser=laser)
         action["move"], action["jump"], action["boost"] = step["move"], step["jump"], step["boost"]
         if not urgent and econ.mode not in ("unstuck", "zone must"):
             side = fighter.sidestep(obs, action["move"])
