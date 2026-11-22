@@ -7,11 +7,12 @@ from first_run import Bot as FirstRun
 from loot import PickupDetour
 from navigation import Navigator
 from objectives import Objectives
+from recovery import ReturnRecovery
 from targeting import Engagement
 
 
 class Bot(FirstRun):
-    name = "zone-runner-v6"
+    name = "zone-runner-v9"
 
     def __init__(self, hello):
         super().__init__(hello)
@@ -19,6 +20,7 @@ class Bot(FirstRun):
         self.objectives = Objectives()
         self.loot = PickupDetour(hello)
         self.engagement = Engagement(hello, Cover())
+        self.recovery = ReturnRecovery(self.nav)
 
     def act(self, obs):
         action = super().act(obs)
@@ -56,6 +58,8 @@ class Bot(FirstRun):
         walk_time = max(0,distance_to_safe) / max(1,me["stats"]["walk_speed"])
         late = distance_to_safe > 0 and obs["t"] + walk_time + 4 > zone["shrink_start"]
         action["boost"] = (late or not me["in_zone"]) and me["energy"] > 15
+        # v9: one sideways recovery attempt when the zone return stops gaining ground.
+        self.recovery.steer(obs, mode == "return", goal, waypoint, action)
         if obs["offer"]:
             priorities = ("armor","plating","nanites","servos","gun_rate","sensors")
             choices = obs["offer"]["choices"]

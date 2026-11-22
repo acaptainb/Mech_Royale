@@ -58,3 +58,7 @@ py tools/engagement_trial.py            # v5 and v6 on identical observations, j
 py tools/engagement_trial.py --heldout  # randomized encounters checked against rules with exact map geometry
 py tools/engagement_probe.py            # the running bot (or --docker: the match container) uses v6
 ```
+
+## Version 9 zone-return recovery
+
+V9 changes one behaviour on the 2.08 baseline (`1a0ca39`). When the zone return stops gaining ground and the mech is not moving, it makes one recovery attempt (`recovery.py`): the existing sideways step with a jump, followed by a 3 s cooldown. `py tools/zone_return_trial.py` compares the exported baseline and this tree as real bot processes from matched starts.
