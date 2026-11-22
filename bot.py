@@ -12,7 +12,7 @@ from targeting import Engagement
 
 
 class Bot(FirstRun):
-    name = "zone-runner-lead-shots"
+    name = "zone-runner-prefer-mortar"
 
     def __init__(self, hello):
         super().__init__(hello)
@@ -71,8 +71,13 @@ class Bot(FirstRun):
         if me["weapons"][1] is None:
             eligible = [p for p in obs["pickups"] if p["kind"] != "gun"
                         and abs(p["pos"][2]-z) <= 4 and math.dist(p["pos"][:2],(x,y)) <= self.reach]
+            # prefer-mortar: on the way to a mortar, do not pick up anything else.
+            target = self.loot.target
+            if target is not None and target.get("kind") == "mortar":
+                eligible = [p for p in eligible if p["kind"] == "mortar"]
             if eligible:
-                action["take"] = min(eligible,key=lambda p: math.dist(p["pos"],me["pos"]))["id"]
+                # prefer-mortar: a mortar in reach is taken before any other kind.
+                action["take"] = min(eligible,key=lambda p: (p["kind"] != "mortar", math.dist(p["pos"],me["pos"])))["id"]
         if not obs["mechs"]:
             for weapon in me["weapons"]:
                 if weapon and weapon["kind"] == "gun" and weapon.get("ammo",12) <= 5:

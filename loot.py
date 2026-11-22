@@ -227,7 +227,8 @@ class PickupDetour:
         searching = self.pending[0] if self.pending else None
         options = [item for item in self.candidates(obs) if self.skip.get(item[1], -1) <= now]
         # Keep evaluating the pickup whose route search is already running.
-        options.sort(key=lambda item: (item[1] != searching, item[0], item[1]))
+        # prefer-mortar: among the rest, mortars come first, then the usual distance order.
+        options.sort(key=lambda item: (item[1] != searching, item[2]["kind"] != "mortar", item[0], item[1]))
         for _, key, pickup, at in options:
             if self.pressure(obs, pos, at):
                 continue
@@ -251,7 +252,7 @@ class PickupDetour:
                 self.skip[key] = now + 20
                 continue
             self.pending = None
-            self.target = dict(id=key, pos=pickup["pos"], at=at, since=now, seen=now,
+            self.target = dict(id=key, kind=pickup["kind"], pos=pickup["pos"], at=at, since=now, seen=now,
                                initial=cost, best=cost, closest=math.dist(pos, at), best_at=now)
             if key not in self.pursued:
                 self.pursued.append(key)

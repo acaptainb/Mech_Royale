@@ -25,7 +25,8 @@ Practice seeds are fixed for the whole event and the bot is deterministic. A ver
 | duel-strafe | `duel-strafe` | `2b8e620b618581f267189f12ca46d12b5be28588` | `3b290b0` (2.63) | 2.46 (submission row SHA still to be matched to `2b8e620`) | -0.17 |
 | duel-weave | `duel-weave` | not a candidate: failed its pre-submission gate | `3b290b0` (2.63) | not submitted | n/a |
 | no-mortar | `no-mortar` | `df1be152ba1bee40a368979ccb01eef1b7f9b347` | `3b290b0` (2.63) | pending | pending |
-| lead-shots | `lead-shots` | this commit (tag `lead-shots-candidate`) | `3b290b0` (2.63) | pending | pending |
+| lead-shots | `lead-shots` | `4d8a32d3c453d3efb430baddb4bd141678417d77` (tag `lead-shots-candidate`) | `3b290b0` (2.63) | **2.90** (as reported) | +0.27 |
+| prefer-mortar | `prefer-mortar` | this commit (tag `prefer-mortar-candidate`) | `4d8a32d` (lead-shots, 2.90) | pending | pending |
 
 ## Log
 
@@ -44,7 +45,8 @@ Practice seeds are fixed for the whole event and the bot is deterministic. A ver
 | duel-strafe | `3b290b0` | this commit (tag `duel-strafe-candidate`) | walking sideways to the only, clearly visible opponent during ordinary zone movement helps survive the exchange | eligible on 115 of 300 recording decisions; the move changed on all 115 | hit rate under a leading shooter -17% and -11%, but routes stall while the opponent stays in view (see below) | 2.46 (-0.17) | revert: it fired at about 150 m, mostly against a laser user (hitscan, not dodgeable by walking), and replaced progress toward the zone |
 | duel-weave | `3b290b0` | not a candidate | angling the waypoint 20 degrees, alternating sides, in a clear duel keeps progress and cuts hits | eligible on 115 of 300 recording decisions; the move changed on all 115 | 16 held-out routes: 16/16 finished, but 570 hits vs 554 for 2.63 and safety 0.8 s later | not submitted | gate not passed: more hits than 2.63 |
 | lead-shots | `3b290b0` | this commit (tag `lead-shots-candidate`) | aiming the gun where a moving opponent will be when the bullet arrives lands more hits, so we kill more of the house bots that hunt us before we die | every decision with a moving opponent: aim led on 169 of 300 recording decisions | hits 56 to 109 of 130 shots (43% to 84%) in a closed-loop gunfight; never fewer; laser still released onto a moving target; only the aim changes | pending | pending your score |
-| no-mortar | `3b290b0` | `df1be15` (tag `no-mortar-candidate`) | never carrying a mortar helps: we cannot aim it, and holding one makes every laser hit on us cook off for +60% | whenever v5 would detour for or walk over a mortar (a third of floor weapons); 0 on the recording (no mortar within 70 m) | never carries a mortar in any layout; takes a laser instead when one is near; control identical | pending | pending your score |
+| no-mortar | `3b290b0` | `df1be15` (tag `no-mortar-candidate`) | never carrying a mortar helps: we cannot aim it, and holding one makes every laser hit on us cook off for +60% | whenever v5 would detour for or walk over a mortar (a third of floor weapons); 0 on the recording (no mortar within 70 m) | never carries a mortar in any layout; takes a laser instead when one is near; control identical | 2.58 (as reported, -0.05) | revert: carrying a mortar helped |
+| prefer-mortar | `4d8a32d` | this commit (tag `prefer-mortar-candidate`) | since never carrying a mortar cost placement (no-mortar 2.58 vs 2.63), picking a mortar over another weapon when both are reachable helps | whenever a mortar and another non-gun weapon are both candidates for the detour or both in reach; 0 on the recording (no mortar within 70 m) | takes the mortar in 16/16 two-weapon layouts where the parent took the laser; goal time within 0.1 s; controls identical | pending | pending your score |
 
 ## v6: selective engagement
 
@@ -236,6 +238,31 @@ Evidence (`py tools/lead_trial.py`: a closed-loop gunfight against `3b290b0`, bo
 - **Recording:** the aim is led on all 169 decisions with an opponent listed, and no command other than aim differs. The first led decision is at t=4.9, 140 m away: yaw +0.850 against +0.807.
 - **Narrowed checks:** the laser trial's recording control now compares fire commands, and the engagement held-out rule R3 also accepts a lead bearing, computed independently in the trial.
 - **Other checks:** the dodge trial, combo check, objective checks, route, pickup and target trials, the probe and `verify.py` all pass.
+
+## prefer-mortar (on `4d8a32d`, the lead-shots commit; parent score 2.90)
+
+**Why:** no-mortar (never carry a mortar) scored 2.58 against its parent's 2.63, so carrying a mortar was worth placement in the practice matches, despite the poor aim and the cook-off rule. If having one helps, getting one more often may help more.
+
+**The change (pickup choice only):**
+
+- the pickup detour (`loot.py` `search`) ranks mortars first, then keeps the existing distance order; every existing check (route cost, zone pressure, skip times) still applies;
+- the detour target now records the pickup's kind;
+- the take-on-the-way rule in `bot.py` takes a mortar first when several pickups are in reach, and while the detour is heading to a mortar it takes nothing else on the way;
+- a held weapon is never dropped to swap.
+
+Evidence (`py tools/prefer_mortar_trial.py`: the pickup trial's closed-loop world, both bots as real processes from the same starts, 8 layouts per case):
+
+| Case | Parent carries away | prefer-mortar carries away | Goal reached (parent / cand) |
+| --- | --- | --- | --- |
+| mortar and laser at similar distance (4 m apart, the laser nearer) | laser 8 | mortar 8 | 19.8 s / 19.9 s |
+| mortar 15 m farther along the route than a laser | laser 8 | mortar 8 | 19.8 s / 19.7 s |
+| lone laser (control) | laser 8 | laser 8 | identical |
+| lone mortar (control) | mortar 8 | mortar 8 | identical |
+
+- **Time cost:** going for the farther mortar did not delay the zone goal (19.7 s against 19.8 s), because the mortar lies along the route.
+- **First build:** the detour already targeted the mortar, but the take-on-the-way rule grabbed the laser lying on the route (laser in 1 and 3 of 8). Restricting that rule while heading to a mortar fixed it.
+- **Recording:** 2 mortar sightings, none within 70 m, and 0 of 300 decisions differ, so activation on the recording is 0.
+- **Other checks:** the lead trial against `3b290b0`, the laser trial against v8 (`4588e6b`), the engagement trial (both held-out seeds), objective checks, route, pickup and target trials, the probe and `verify.py` all pass.
 
 ## Next experiment: laser trigger discipline (#3)
 
