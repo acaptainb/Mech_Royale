@@ -24,8 +24,9 @@ Practice seeds are fixed for the whole event and the bot is deterministic. A ver
 | combo B: combo A + v12 | `combo-b` | `32259f0dc1c7edf7b5241f18c62fc2632749564c` | `f0a59c7` | 2.58 | -0.02 (-0.05 vs 2.63) |
 | duel-strafe | `duel-strafe` | `2b8e620b618581f267189f12ca46d12b5be28588` | `3b290b0` (2.63) | 2.46 (submission row SHA still to be matched to `2b8e620`) | -0.17 |
 | duel-weave | `duel-weave` | not a candidate: failed its pre-submission gate | `3b290b0` (2.63) | not submitted | n/a |
-| no-mortar | `no-mortar` | `df1be152ba1bee40a368979ccb01eef1b7f9b347` | `3b290b0` (2.63) | pending | pending |
-| lead-shots | `lead-shots` | this commit (tag `lead-shots-candidate`) | `3b290b0` (2.63) | pending | pending |
+| no-mortar | `no-mortar` | `df1be152ba1bee40a368979ccb01eef1b7f9b347` | `3b290b0` (2.63) | 2.58 | -0.05 |
+| lead-shots | `lead-shots` | `4d8a32d3c453d3efb430baddb4bd141678417d77` (tag `lead-shots-candidate`) | `3b290b0` (2.63) | **2.90** (best so far; parent of the next candidates) | +0.27 |
+| lightning-gate | `lightning-gate` | this commit (tag `lightning-gate-candidate`) | `4d8a32d` (2.90) | pending | pending |
 
 ## Log
 
@@ -43,8 +44,9 @@ Practice seeds are fixed for the whole event and the bot is deterministic. A ver
 | combos A and B | `3b290b0` | `f0a59c7`, `32259f0` | v10 + v11, then v12, add to v8 + v7 | v10, v11 and v12 as on their own branches | each trial reproduced its standalone result | 2.60 and 2.58 | revert: both below 2.63, so v10 or v11 fired in practice and cost placements, and v12 cost more |
 | duel-strafe | `3b290b0` | this commit (tag `duel-strafe-candidate`) | walking sideways to the only, clearly visible opponent during ordinary zone movement helps survive the exchange | eligible on 115 of 300 recording decisions; the move changed on all 115 | hit rate under a leading shooter -17% and -11%, but routes stall while the opponent stays in view (see below) | 2.46 (-0.17) | revert: it fired at about 150 m, mostly against a laser user (hitscan, not dodgeable by walking), and replaced progress toward the zone |
 | duel-weave | `3b290b0` | not a candidate | angling the waypoint 20 degrees, alternating sides, in a clear duel keeps progress and cuts hits | eligible on 115 of 300 recording decisions; the move changed on all 115 | 16 held-out routes: 16/16 finished, but 570 hits vs 554 for 2.63 and safety 0.8 s later | not submitted | gate not passed: more hits than 2.63 |
-| lead-shots | `3b290b0` | this commit (tag `lead-shots-candidate`) | aiming the gun where a moving opponent will be when the bullet arrives lands more hits, so we kill more of the house bots that hunt us before we die | every decision with a moving opponent: aim led on 169 of 300 recording decisions | hits 56 to 109 of 130 shots (43% to 84%) in a closed-loop gunfight; never fewer; laser still released onto a moving target; only the aim changes | pending | pending your score |
-| no-mortar | `3b290b0` | `df1be15` (tag `no-mortar-candidate`) | never carrying a mortar helps: we cannot aim it, and holding one makes every laser hit on us cook off for +60% | whenever v5 would detour for or walk over a mortar (a third of floor weapons); 0 on the recording (no mortar within 70 m) | never carries a mortar in any layout; takes a laser instead when one is near; control identical | pending | pending your score |
+| lead-shots | `3b290b0` | `4d8a32d` (tag `lead-shots-candidate`) | aiming the gun where a moving opponent will be when the bullet arrives lands more hits, so we kill more of the house bots that hunt us before we die | every decision with a moving opponent: aim led on 169 of 300 recording decisions | hits 56 to 109 of 130 shots (43% to 84%) in a closed-loop gunfight; never fewer; laser still released onto a moving target; only the aim changes | **2.90 (+0.27)** | **keep: best score; parent of the next candidates** |
+| no-mortar | `3b290b0` | `df1be15` (tag `no-mortar-candidate`) | never carrying a mortar helps: we cannot aim it, and holding one makes every laser hit on us cook off for +60% | whenever v5 would detour for or walk over a mortar (a third of floor weapons); 0 on the recording (no mortar within 70 m) | never carries a mortar in any layout; takes a laser instead when one is near; control identical | 2.58 (-0.05) | revert: the mortar is worth carrying |
+| lightning-gate | `4d8a32d` | this commit (tag `lightning-gate-candidate`) | holding the lightning trigger only while the chosen opponent is within the arc's 45 m and 30 degree cone stops arcs that hit nothing and keeps energy for boosting | whenever we carry a lightning and fire beyond 45 m: 107 of 300 recording decisions with a lightning placed in slot 1; 0 on the plain recording (gun only) | closed loop at 100-150 m: 24 wasted arcs (72 energy) to 0, gun hits identical; arc hits never fewer; inside 45 m identical | pending | pending your score |
 
 ## v6: selective engagement
 
@@ -236,6 +238,29 @@ Evidence (`py tools/lead_trial.py`: a closed-loop gunfight against `3b290b0`, bo
 - **Recording:** the aim is led on all 169 decisions with an opponent listed, and no command other than aim differs. The first led decision is at t=4.9, 140 m away: yaw +0.850 against +0.807.
 - **Narrowed checks:** the laser trial's recording control now compares fire commands, and the engagement held-out rule R3 also accepts a lead bearing, computed independently in the trial.
 - **Other checks:** the dodge trial, combo check, objective checks, route, pickup and target trials, the probe and `verify.py` all pass.
+
+## lightning-gate (on `4d8a32d`, the 2.90 commit)
+
+**Why:** `bot.py` sends `fire = [engage.fire, engage.fire]`, so a lightning in either slot fires whenever the gun does, out to the gun's 230 m. An arc reaches only `range` 45 m inside `cone_deg` 30 degrees of the aim, and costs `energy` 3 per shot every 0.25 s, hit or miss. Arcing every 0.25 s outspends regeneration (18/s only after 0.6 s without spending), so a long gunfight drains the energy the bot boosts with when it is late for the zone (`boost` needs more than 15).
+
+**The change:** the lightning slot's trigger is held only when the engagement's chosen opponent is within the lightning's `range`, inside its `cone_deg` of the aim being sent, with a clear line by the cover map (`Bot.lightning_reaches`). Otherwise that slot's fire is false. Every other slot and command is unchanged; `Bot.lightning_gated` counts the gated decisions.
+
+Evidence (`py tools/lightning_trial.py`: the closed-loop gunfight of `lead_trial.py` with a lightning in slot 1 against `4d8a32d`, both as real bot processes, the same spread draws per scenario):
+
+| Opponent (aiming at us) | Gun hits base / gate | Arcs | Arc hits | Energy spent | Lowest energy |
+| --- | --- | --- | --- | --- | --- |
+| standing, 100 m | 14 / 14 | 24 / 0 | 0 / 0 | 72 / 0 | 28 / 100 |
+| walking across, 120 m | 13 / 13 | 24 / 0 | 0 / 0 | 72 / 0 | 28 / 100 |
+| walking across, 150 m | 10 / 10 | 10 / 0 | 0 / 0 | 30 / 0 | 70 / 100 |
+| walking straight at us from 80 m | 15 / 15 | 24 / 12 | 12 / 12 | 72 / 36 | 28 / 64 |
+| standing, 30 m and 42 m; walking across at 30 m | identical | identical | identical | identical | identical |
+| gun only; gun + mortar (controls) | identical | 0 | 0 | 0 | 100 |
+
+- **Trace** (walking straight at us from 80 m): both fire the gun throughout. Lead-shots arcs from t=0.0 at 80 m and is down to 64 energy by t=2.8 (47 m); the gate holds the arc until t=3.0 (45 m) with 100 energy, then arcs on every shot and lands the same 12 arc hits.
+- **Recording:** it carries only a gun, so 0 of 300 decisions differ. Replayed with a lightning in slot 1, the lightning trigger differs on 107 of 300 decisions (every opponent there is beyond 45 m), and no other command differs.
+- **Narrowed checks:** none.
+- **Other checks:** the engagement trial (scenarios and held-out), `lead_trial.py --baseline 3b290b0`, `entrypoint_trial.py --baseline 4588e6b`, the dodge trial, combo check, objective checks, route, pickup and target trials, the probe and `verify.py` all pass.
+- **Possible cost:** the cone is measured from the aim being sent, not the torso's current aim, so the gate cannot stop arcs while the torso is still turning onto a target inside 45 m. It also holds arcs that would have hit a different mech, drone or crate within 45 m in the cone while the chosen opponent is farther away.
 
 ## Next experiment: laser trigger discipline (#3)
 

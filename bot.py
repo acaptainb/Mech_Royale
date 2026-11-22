@@ -12,7 +12,7 @@ from targeting import Engagement
 
 
 class Bot(FirstRun):
-    name = "zone-runner-lead-shots"
+    name = "zone-runner-lightning-gate"
 
     def __init__(self, hello):
         super().__init__(hello)
@@ -21,6 +21,7 @@ class Bot(FirstRun):
         self.loot = PickupDetour(hello)
         self.engagement = Engagement(hello, Cover())
         self.dodge = Dodge(hello, self.nav)
+        self.lightning_gated = 0  # lightning-gate: decisions the lightning trigger was let go
 
     def act(self, obs):
         action = super().act(obs)
@@ -97,8 +98,29 @@ class Bot(FirstRun):
         for slot, weapon in enumerate(me["weapons"][:2]):
             if weapon and weapon.get("kind") == "laser" and self.engagement.release_laser(obs, weapon):
                 fire[slot] = False
+        # lightning-gate: an arc reaches only `range` m inside `cone_deg` of the aim, and every
+        # shot spends energy, hit or miss. Hold the lightning trigger only when the chosen
+        # opponent is within reach, inside the cone of the aim sent, with a clear line.
+        for slot, weapon in enumerate(me["weapons"][:2]):
+            if (weapon and weapon.get("kind") == "lightning" and fire[slot]
+                    and not self.lightning_reaches(engage, me, action.get("aim"), weapon)):
+                fire[slot] = False
+                self.lightning_gated += 1
         action["fire"] = fire
         return action
+
+    @staticmethod
+    def lightning_reaches(engage, me, aim, weapon):
+        """lightning-gate: the chosen opponent is in the lightning's range and cone of `aim`."""
+        if engage.get("target") is None or not engage.get("clear") or not aim:
+            return False
+        stats = weapon.get("stats") or {}
+        if engage["distance"] > stats.get("range", 45.0):
+            return False
+        cx, cy = engage["centre"][:2]
+        bearing = math.atan2(cy - me["pos"][1], cx - me["pos"][0])
+        off = abs((bearing - aim[0] + math.pi) % math.tau - math.pi)
+        return math.degrees(off) <= stats.get("cone_deg", 30.0)
 
 
 if __name__ == "__main__":
