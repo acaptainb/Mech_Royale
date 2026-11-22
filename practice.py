@@ -19,7 +19,7 @@ class PracticeMode:
     free-for-all mechs die to each other quickly, so three outside deaths still switch it off."""
     START_S = 1.0    # squad-final: the practice design starts almost at once (was 20 s)
     OUTSIDE_TICKS = 5
-    OUTSIDE_DEATHS = 3
+    OUTSIDE_DEATHS = 6   # squad-final: was 3; a few house bots lost to drones or the zone keep the practice design
 
     def __init__(self):
         self.start_alive = None
