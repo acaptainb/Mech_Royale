@@ -6,13 +6,14 @@ from cover import Cover
 from dodge import Dodge
 from first_run import Bot as FirstRun
 from loot import PickupDetour
+from mortar import MortarArc
 from navigation import Navigator
 from objectives import Objectives
 from targeting import Engagement
 
 
 class Bot(FirstRun):
-    name = "zone-runner-lead-shots"
+    name = "zone-runner-mortar-arc"
 
     def __init__(self, hello):
         super().__init__(hello)
@@ -21,6 +22,7 @@ class Bot(FirstRun):
         self.loot = PickupDetour(hello)
         self.engagement = Engagement(hello, Cover())
         self.dodge = Dodge(hello, self.nav)
+        self.mortar = MortarArc(hello)
 
     def act(self, obs):
         action = super().act(obs)
@@ -97,6 +99,12 @@ class Bot(FirstRun):
         for slot, weapon in enumerate(me["weapons"][:2]):
             if weapon and weapon.get("kind") == "laser" and self.engagement.release_laser(obs, weapon):
                 fire[slot] = False
+        # mortar-arc: with a mortar ready and v6 shooting, pitch to the shell's arc and press
+        # only the mortar trigger once the torso is on it; then back to the gun's aim.
+        arc = self.mortar.plan(obs, engage)
+        if arc is not None:
+            action["aim"] = arc["aim"]
+            fire = arc["fire"]
         action["fire"] = fire
         return action
 
