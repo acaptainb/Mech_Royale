@@ -91,6 +91,7 @@ class Engagement:
     THREAT_AIM_DEG = 12.0     # its torso aim within this angle of us counts as aiming at us
     THREAT_RANGE_M = 280.0    # the longest weapon reach (laser)
     LEAD_MIN_MPS = 0.5        # lead-shots: slower opponents are aimed at directly
+    WEAK_BONUS_M = 40.0       # weakest-first: a nearly dead opponent ranks up to this much closer
 
     def __init__(self, hello, cover):
         config = hello["config"]
@@ -108,6 +109,7 @@ class Engagement:
         self.hits = {}        # id -> time we last damaged it
         self.decision = {}    # the last decision, for tests and debug drawing
         self.led = 0          # lead-shots: decisions whose aim was led, for local reports
+        self.weakest = 0      # weakest-first: decisions where the HP term changed the best score
 
     def observe(self, obs):
         now = obs["t"]
@@ -184,7 +186,7 @@ class Engagement:
         muzzle = [me[0], me[1], me[2] + stats.get("muzzle_height", 7)]
         weapons = me_state.get("weapons") or []
         reach = self.reach(weapons)
-        scores, facts = {}, {}
+        scores, facts, plain = {}, {}, {}
         for other in obs.get("mechs") or ():
             key, kind = other.get("id"), other.get("kind")
             if kind == "npc" and key not in self.attackers:
@@ -205,9 +207,18 @@ class Engagement:
             score += 0.0 if clear else self.COVER_PENALTY_M
             if not (kind == "mech" and fighting and shootable):
                 score += self.SECOND_TIER_M
+            plain[key] = score
+            # weakest-first: finish wounded opponents we can shoot first; each kill before we
+            # die is about one placement point. The term is far smaller than the tier gap.
+            max_hp, hp = other.get("max_hp") or 0, other.get("hp")
+            if shootable and hp is not None and max_hp > 0:
+                score -= self.WEAK_BONUS_M * min(1.0, max(0.0, 1.0 - hp / max_hp))
             scores[key] = score
             facts[key] = dict(other=other, distance=distance, clear=clear, attacker=attacker,
                               threat=threat, committed=committed, fighting=fighting)
+        if scores and (min(scores, key=lambda k: (scores[k], k))
+                       != min(plain, key=lambda k: (plain[k], k))):
+            self.weakest += 1
         target = self.selector.choose(now, scores)
         unseen = [seen for key, seen in self.attackers.items()
                   if key not in facts and seen[1] is not None]
