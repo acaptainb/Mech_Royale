@@ -232,7 +232,7 @@ def main():
         skip = ("aim", "tick", "debug") + (("move", "boost", "jump") if i in dodging else ())
         rest = lambda x: {k: v for k, v in x.items() if k not in skip}
         other_diff += rest(a) != rest(c)
-        if a.get("aim") != c.get("aim") and len(trace) < 3:
+        if a.get("aim") != c.get("aim") and obs["mechs"] and len(trace) < 3:
             trace.append((obs["t"], a["aim"], c["aim"], obs["mechs"][0]["vel"][:2], round(math.dist(obs["mechs"][0]["pos"], obs["self"]["pos"]))))
     base_bot.close()
     cand_bot.close()

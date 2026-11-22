@@ -12,7 +12,7 @@ from targeting import Engagement
 
 
 class Bot(FirstRun):
-    name = "zone-runner-dodge-tuned"
+    name = "zone-runner-noise-probe"
 
     def __init__(self, hello):
         super().__init__(hello)
@@ -103,6 +103,12 @@ class Bot(FirstRun):
             if weapon and weapon.get("kind") == "laser" and self.engagement.release_laser(obs, weapon):
                 fire[slot] = False
         action["fire"] = fire
+        # noise-probe: a 0.0005 rad (0.03 deg) yaw offset, a twentieth of the gun's 0.6 deg spread
+        # and 5 cm at 100 m. It changes nothing systematically, but every shot lands slightly
+        # differently, so the fixed practice matches play out differently: the score change
+        # against dodge-tuned measures how much a frequently firing change moves the score by luck.
+        if action.get("aim") is not None:
+            action["aim"] = [action["aim"][0] + 0.0005, action["aim"][1]]
         return action
 
 
