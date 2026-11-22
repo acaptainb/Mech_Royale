@@ -224,6 +224,8 @@ class Bot(FirstRun):
                 + (" sidestep" if fighter.side else ""))
         mf.draw.label(text)
         mf.draw.text(text)
+        if action.get("aim") is not None:  # salt-d
+            action["aim"] = [action["aim"][0] + (-0.0005), action["aim"][1]]
         return action
 
 
