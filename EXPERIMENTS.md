@@ -16,7 +16,15 @@ Practice seeds are fixed for the whole event and the bot is deterministic. A ver
 | v7 | `v7-laser-release` | `f69d39c2c32f92e533568ce27854cf5efd0e04ca` | `1a0ca39` | 2.19 | +0.11 |
 | v8 | `v8-bullet-dodge` | `4588e6b826e3ea923ab10697160e5c7658a64179` | `1a0ca39` | **2.50** (entered in the final) | +0.42 |
 | v9 | `v9-return-recovery` | `e287d238ed0cdf196c7e7a18595e9b293afd3360` | `1a0ca39` | 2.08 | +0.00 (the recovery never fired in practice) |
-| v8 + v7 | `combo-v8-v7` | this commit (tag `combo-v8-v7-candidate`) | `4588e6b` (v8) | pending | pending |
+| v8 + v7 | `combo-v8-v7` | `3b290b0b87bee98c418a74546671c82dd232c2d0` | `4588e6b` (v8) | **2.63** (entered in the final) | +0.13 |
+| v10 | `v10-pickup-tiebreak` | `7c3605fdcc0d7bf0c3c813258b3cb746093830b9` | `1a0ca39` | not submitted | n/a |
+| v11 | `v11-kill-cube-detour` | `63b62ff5c20eec473719e2e87061d07a0a834380` | `1a0ca39` | not submitted | n/a |
+| v12 | `v12-hold-near-cover` | `3bc1f4734b8a2c7aecda3b89a6f62f74d712cf46` | `1a0ca39` | not submitted | n/a |
+| combo A: v8 + v7 + v10 + v11 | `combo-a` | `f0a59c7d1f94f9fab441fe4cdd6167aa07670219` | `3b290b0` | 2.60 | -0.03 |
+| combo B: combo A + v12 | `combo-b` | `32259f0dc1c7edf7b5241f18c62fc2632749564c` | `f0a59c7` | 2.58 | -0.02 (-0.05 vs 2.63) |
+| duel-strafe | `duel-strafe` | `2b8e620b618581f267189f12ca46d12b5be28588` | `3b290b0` (2.63) | 2.46 (submission row SHA still to be matched to `2b8e620`) | -0.17 |
+| duel-weave | `duel-weave` | not a candidate: failed its pre-submission gate | `3b290b0` (2.63) | not submitted | n/a |
+| no-mortar | `no-mortar` | this commit (tag `no-mortar-candidate`) | `3b290b0` (2.63) | pending | pending |
 
 ## Log
 
@@ -30,7 +38,11 @@ Practice seeds are fixed for the whole event and the bot is deterministic. A ver
 | v7 | `1a0ca39` | `f69d39c` (tag `v7-candidate`) | releasing a full laser charge the moment the beam is on the chosen opponent improves placement | 4 of 7 entrypoint scenarios; 0 on the recording (no laser held) | first beam on target 0.0-0.8 s vs 1.9-2.7 s; half-speed charging roughly halved; controls identical | 2.19 (+0.11) | keep: combined with v8 |
 | v8 | `1a0ca39` | `4588e6b` (tag `v8-candidate`) | one brief sideways step away from a visible bullet on course to hit us cuts hits taken | 1 dodge on the recording (9 bullets on course: 5 too close to clear, 3 inside the 2 s cooldown) | 9/9 scripted checks; hits -8% (tuning) and -7% (held-out) in the reactive trial, 0 zone exits, every route finished | **2.50 (+0.42)** | **keep: best score; parent of the combination** |
 | v9 | `1a0ca39` | `e287d23` (tag `v9-candidate`) | one cooled-down recovery attempt when the zone return stops gaining ground gets a jammed mech back to safety | 0 on the recording and every control; 1-2 attempts per stuck trial episode | stuck episodes reach safety in 5-12 s where the baseline stays out 30 s | 2.08 (+0.00) | neutral: the rule never fired in the fixed practice matches; harmless, not combined |
-| v8 + v7 | `4588e6b` | this commit (tag `combo-v8-v7-candidate`) | the two changes that scored above 2.08 on their own add up | the dodge as in v8 (1 on the recording); the laser release as in v7 (0 on the recording) | moves exactly as v8 and fires exactly as v7 on every checked decision; recording identical to v8 | pending | pending your score |
+| v8 + v7 | `4588e6b` | this commit (tag `combo-v8-v7-candidate`) | the two changes that scored above 2.08 on their own add up | the dodge as in v8 (1 on the recording); the laser release as in v7 (0 on the recording) | moves exactly as v8 and fires exactly as v7 on every checked decision; recording identical to v8 | **2.63 (+0.13 over v8)** | **keep: best score; parent of duel-strafe** |
+| combos A and B | `3b290b0` | `f0a59c7`, `32259f0` | v10 + v11, then v12, add to v8 + v7 | v10, v11 and v12 as on their own branches | each trial reproduced its standalone result | 2.60 and 2.58 | revert: both below 2.63, so v10 or v11 fired in practice and cost placements, and v12 cost more |
+| duel-strafe | `3b290b0` | this commit (tag `duel-strafe-candidate`) | walking sideways to the only, clearly visible opponent during ordinary zone movement helps survive the exchange | eligible on 115 of 300 recording decisions; the move changed on all 115 | hit rate under a leading shooter -17% and -11%, but routes stall while the opponent stays in view (see below) | 2.46 (-0.17) | revert: it fired at about 150 m, mostly against a laser user (hitscan, not dodgeable by walking), and replaced progress toward the zone |
+| duel-weave | `3b290b0` | not a candidate | angling the waypoint 20 degrees, alternating sides, in a clear duel keeps progress and cuts hits | eligible on 115 of 300 recording decisions; the move changed on all 115 | 16 held-out routes: 16/16 finished, but 570 hits vs 554 for 2.63 and safety 0.8 s later | not submitted | gate not passed: more hits than 2.63 |
+| no-mortar | `3b290b0` | this commit (tag `no-mortar-candidate`) | never carrying a mortar helps: we cannot aim it, and holding one makes every laser hit on us cook off for +60% | whenever v5 would detour for or walk over a mortar (a third of floor weapons); 0 on the recording (no mortar within 70 m) | never carries a mortar in any layout; takes a laser instead when one is near; control identical | pending | pending your score |
 
 ## v6: selective engagement
 
@@ -95,6 +107,102 @@ Evidence (all as real bot processes):
 | `py tools/entrypoint_trial.py --baseline 4588e6b` (laser scenarios against v8) | every row matches v7's run against its own parent; the recording is identical to v8 (0 of 300 decisions differ) |
 | `py tools/dodge_trial.py` (against v6) | identical to v8's own run: 9/9 scripted checks, hits 441 to 404 (tuning) and 596 to 554 (held-out), 0 zone exits, 1 dodge on the recording |
 | `py tools/combo_check.py` (against the exported v7 and v8) | with a full laser and a bullet on course at once, the combination steps sideways and boosts like v8 and sends `[true, false]` like v7; each change alone also matches its parent |
+
+## duel-strafe (on `3b290b0`, the 2.63 commit; parent score 2.63)
+
+`strafe.py`, applied in `bot.py`. V6's engagement decision is now computed once, before movement, and the same decision drives aiming, firing and the laser release.
+
+**When it is eligible:**
+- local mode is the plain zone objective, so no return, supply drop, relocation or pickup detour;
+- the mech is in the zone, the return is not urgent (`late` is false) and the obstacle recovery is not running;
+- the selected opponent is a game mech and the only game mech listed;
+- its line of fire is clear by the existing cover check, and it is within weapon reach.
+
+**What it does:**
+- walks, at walk speed with boost off, perpendicular to the bearing toward that opponent;
+- keeps one side for an interval drawn from 0.75-1.15 s of match time (a generator seeded with the slot seed), then switches;
+- if a 4 m lookahead on the current side crosses a wall on the ground grid, or ends within 3 m of the current circle's edge (or outside the next circle when we are inside it), it tries the other side; if neither is safe, the normal waypoint stands.
+
+It runs before the v8 dodge, so a bullet on course still has the last word.
+
+Evidence (`py tools/strafe_trial.py`; baseline exported from `3b290b0`; both as `python -u bot.py`; identical starts):
+
+| Check | Baseline | duel-strafe |
+| --- | --- | --- |
+| open duel before any damage | walks `[1, 0]` | `[0.87, -0.50]`, perpendicular to the opponent, boost off |
+| one side blocked by a wall | stands | switches to the open side `[-1, 0]` |
+| both sides blocked, a second opponent listed, urgent zone return | | identical to the baseline |
+| bullet on course during the duel | dodges `[-1, 0]`, boost on | same: the dodge has the final say |
+| side intervals in a static duel | | runs of 10, 9, 12, 9 and 11 decisions (all 0.75-1.15 s) |
+| aim and fire, all scripted cases and the recording | | identical to the baseline |
+| standard recording (300 decisions) | | eligible 115, move changed 115, side switched for a blocked lookahead 2; skipped: no opponent selected 131, no clear shot line 54; move or boost differs from the baseline on 112 (the dodge overrides 3) |
+
+The reactive duel uses the v8 dodge trial's world: a stationary shooter leading every bullet, the episode ending on arrival or at 30 s. It is a measurement, not a pass/fail.
+
+| Episodes | Hits (base / strafe) | Hits per 10 s | Routes unfinished |
+| --- | --- | --- | --- |
+| 12 tuning | 404 / 807 | 30.3 / 25.0 | 0 / 10 |
+| 16 held-out | 554 / 1,323 | 32.5 / 28.8 | 0 / 15 |
+
+Sideways walking cuts the hit rate by 11-17%. But while a single clear opponent stays in view, the strafe replaces progress toward the zone, so total exposure and total hits roughly double in this world. In a match the zone's own timing eventually makes the return urgent and switches the strafe off.
+
+The same effect shows in the older tools:
+
+- **`tools/dodge_trial.py`:** routes unfinished. There were also 6 and 34 decisions outside the zone, after relocations near the edge during the longer exposure; the strafe itself was not steering on the decisions that crossed.
+- **`tools/pickup_trial.py`:** "opponent beside pickup" never reaches the zone centre, because a passive mech stays listed the whole episode.
+- **`tools/combo_check.py`:** case 2 (a single clear opponent) now strafes instead of moving as v8.
+
+These checks are left unedited and reported here. `tools/engagement_trial.py` (now excluding strafe decisions from its movement check: 115) and `tools/entrypoint_trial.py` (controls now compare fire and aim) pass.
+
+**Official result: 2.46** (-0.17 against 2.63; to be matched to the submission row's SHA). On the recording the strafe fired on 115 decisions:
+
+- **Range:** the opponent was a median 148 m away, and only 4 decisions were within 60 m.
+- **Damage:** we took 1,260 laser and 360 gun damage on those decisions. A laser hits the instant it is released, so walking sideways cannot make it miss.
+- **Progress:** the strafe replaced the walk toward the zone.
+
+The pre-submission trial showed the stalled routes and the doubled exposure. The official score confirms the cost.
+
+## duel-weave (on `3b290b0`, the 2.63 commit): gate not passed, not submitted
+
+`weave.py` reuses duel-strafe's eligibility and side timer (`strafe.py`). When eligible, it turns the normal waypoint direction 20 degrees to the current side, at the same speed. If a 4 m lookahead on that heading crosses a wall or leaves the safe circle, it tries the other side, then keeps the original direction. The v8 dodge stays the final override.
+
+The submission gate, set in advance: finish every route and take fewer total hits than 2.63 on the same 16 held-out routes (`py tools/weave_compare.py`; the v8 dodge trial's world, with a shooter leading every bullet, both bots as real processes):
+
+| Build | Routes finished | Mean time to safety | Total hits | Decisions outside the zone |
+| --- | --- | --- | --- | --- |
+| 2.63 (`3b290b0`) | 16/16 | 10.6 s | 554 | 0 |
+| full strafe (`2b8e620`, official 2.46) | 1/16 | 10.1 s (the one route) | 1,323 | 34 |
+| duel-weave | 16/16 | 11.4 s | 570 | 0 |
+
+The weave fixes the strafe's stall: every route finishes and nothing leaves the zone. But it takes 16 more hits than 2.63 (+2.9%) and arrives 0.8 s later. It cut hits on 3 routes (9, 11, 14), tied on 2 (routes 2 and 3) and added them on 11. A leading shooter re-aims within a fraction of a second of each turn, and the zigzag lengthens the time under fire. The gate was not passed, so no submission SHA was prepared; this commit is a record only.
+
+## no-mortar (on `3b290b0`, the 2.63 commit)
+
+Why, from the evidence:
+
+- **We cannot use a mortar:** with our aim, shells land short on 96% of trigger decisions (measured after v6).
+- **Holding one is dangerous:** the protocol's cook-off rule adds +60% to every laser hit on a mortar carrier, so 315 becomes 504.
+- **Lasers are what hurt us:** the recorded opponent held a gun and a laser on all 169 decisions it was listed, and lasers did 1,260 of the 1,665 damage we took.
+
+The change, two lines:
+
+- the pickup detour (`loot.py` `candidates`) skips mortars;
+- the take-on-the-way rule in `bot.py` no longer takes them.
+
+Nothing else changes.
+
+Evidence (`py tools/no_mortar_trial.py`: the pickup trial's closed-loop world, both bots as real processes from the same starts, 8 layouts per case):
+
+| Case | Baseline carries away | no-mortar carries away | Goal reached (base / cand) |
+| --- | --- | --- | --- |
+| lone mortar nearby | mortar 8 | nothing 8 | 22.2 s / 22.6 s |
+| mortar, laser 10 m farther | mortar 8 | laser 8 | 22.2 s / 22.3 s |
+| mortar lying on the route | mortar 8 | nothing 8 | 22.1 s / 22.6 s |
+| lone laser (control) | laser 8 | laser 8 | identical |
+
+- **Recording:** 2 mortar sightings, none within 70 m, and 0 of 300 decisions differ.
+- **Laser trial against v8 (`4588e6b`):** every v7 row passes, so the laser release is intact.
+- **Other checks:** the dodge trial, combo check, engagement trial (both held-out seeds), objective checks, route, pickup and target trials, the probe and `verify.py` all pass.
 
 ## Next experiment: laser trigger discipline (#3)
 

@@ -70,3 +70,7 @@ V8 changes one behaviour on the 2.08 baseline (`1a0ca39`). When a visible bullet
 ## Combination: V8 + V7
 
 This branch is V8 (`4588e6b`, official 2.50) with V7's laser release (`f69d39c`, official 2.19) added unchanged. Both changes scored above their shared 2.08 parent on their own. The dodge only sets move and boost, and the laser release only sets the laser slot's trigger, so the two never write the same command.
+
+## no-mortar
+
+Built on the 2.63 commit (`3b290b0`). The bot never goes for or takes a mortar: we cannot aim it, and carrying one adds +60% to every laser hit on us. Run `py tools/no_mortar_trial.py` to compare against the exported baseline.

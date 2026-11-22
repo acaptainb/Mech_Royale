@@ -12,7 +12,7 @@ from targeting import Engagement
 
 
 class Bot(FirstRun):
-    name = "zone-runner-v8+v7"
+    name = "zone-runner-no-mortar"
 
     def __init__(self, hello):
         super().__init__(hello)
@@ -69,7 +69,7 @@ class Bot(FirstRun):
         # Pick the closest eligible item, including the height requirement.
         action.pop("take",None)
         if me["weapons"][1] is None:
-            eligible = [p for p in obs["pickups"] if p["kind"] != "gun"
+            eligible = [p for p in obs["pickups"] if p["kind"] not in ("gun", "mortar")
                         and abs(p["pos"][2]-z) <= 4 and math.dist(p["pos"][:2],(x,y)) <= self.reach]
             if eligible:
                 action["take"] = min(eligible,key=lambda p: math.dist(p["pos"],me["pos"]))["id"]
