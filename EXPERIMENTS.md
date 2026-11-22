@@ -533,3 +533,17 @@ With the gun alone, holding fire while the torso turns saves rounds: the hunter 
 | changed expectation | the move trial's urgent-zone-return control compared whole answers; in practice mode the aim and triggers are the fire part's even then, so it now compares move, boost and jump, which stay identical (80/80). The two trials only follow the module renames otherwise (`squad_fire.UPGRADES`, `bot.squad_move.errors`) |
 | `py tools/practice_trial.py` (new; against 8064167) | identical to farm-power on the engagement scenarios before 20 s (965/965), a rich scenario 0-19.9 s (200/200), the same with a death we did not cause at 10 s run to 60 s (600/600) and the recording (300/300); the same scenario from 20.05 s differs on 200/200. Busy closed loop near buildings (hunters aiming at us, HP 45% so the cover search runs, crates, cubes, drones and pickups in view, bullets, a charging laser, then 15 engaged mechs): act() p99 4.9 ms, max 5.6 ms; through stdin/stdout p99 3.9 ms, max 5.1 ms. Fuzz: 6,000 random decisions (3,019 in practice mode), 0 exceptions, 0 malformed or non-finite actions, 0 errors swallowed |
 | regressions | `engagement_trial.py` and `--heldout` (R0-R9), `lead_trial.py --baseline 3b290b0` (hits 56 to 109 of 130), `dodge_trial.py` (369 and 517 hits, unchanged), `farm_trial.py`, `verify.py` (p99 1.8 ms) and `engagement_probe.py` (ready name `zone-runner-squad-fire-move`) pass; none fails |
+
+## squad-sticky (on `8805ed6`, squad-fire-move)
+
+Official results so far: farm-power 3.25, squad-fire 3.65 (best), squad-move 3.52, squad-econ 3.29.
+
+One change to the practice-mode detector (`practice.py`): practice mode now switches off only after **three** mechs have died to something other than us (it was the first such death). In the practice match the 15 house bots hunt us together and never fight each other, but one of them occasionally dies to a drone or to the zone; until now that single death dropped the bot back to farm-power's behaviour for the rest of the match while the squad kept hunting it. In a free-for-all mechs die to each other quickly, so three outside deaths still switch the practice design off there.
+
+| Check (`py tools/practice_trial.py`) | Result |
+| --- | --- |
+| before 20 s (engagement scenarios, rich scenario) | identical to farm-power on 965/965 and 200/200 |
+| three outside deaths at 10 s | identical to farm-power on 600/600 |
+| two outside deaths at 10 s | identical before 20 s, practice mode after it (399/400 answers differ) |
+| standard recording (one outside death at 18 s) | identical up to 20 s; 52 later answers differ (practice mode) |
+| decision time | in-process p99 6.1 ms, max 8.4 ms (unchanged from squad-fire-move) |

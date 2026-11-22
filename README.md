@@ -114,3 +114,7 @@ Built on squad-fire (`90d298b`, official 3.65) with squad-move (`35a0bdd`, offic
 - `squad_move.py`, the move part: where to stand while fighting the fire part's target (or the nearest engaged mech while no target has a line of fire), the short LoseRule retreats to cover and the laser sidestep.
 
 Movement, highest first: the bullet and shell dodges; the parent's urgent zone return; the LoseRule retreat; the fight move with the mid-fight cube grab; otherwise farm-power's movement. Outside practice mode every decision is farm-power's. Run `py tools/squad_fire_trial.py`, `py tools/squad_move_trial.py` and `py tools/practice_trial.py` (mode switch against farm-power, decision time with the parts busy, fuzz).
+
+## squad-sticky
+
+Built on squad-fire-move (`8805ed6`). Practice mode stays on until three mechs have died to something other than us, so a single house bot lost to a drone or the zone no longer switches the practice design off. Run `py tools/practice_trial.py`.

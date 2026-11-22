@@ -22,7 +22,7 @@ from targeting import Engagement
 
 
 class Bot(FirstRun):
-    name = "zone-runner-squad-fire-move"
+    name = "zone-runner-squad-sticky"
 
     def __init__(self, hello):
         super().__init__(hello)
