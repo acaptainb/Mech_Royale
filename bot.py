@@ -5,6 +5,7 @@ import mechfight as mf
 from cover import Cover
 from dodge import Dodge
 from first_run import Bot as FirstRun
+from lasercover import LaserCover
 from loot import PickupDetour
 from navigation import Navigator
 from objectives import Objectives
@@ -12,7 +13,7 @@ from targeting import Engagement
 
 
 class Bot(FirstRun):
-    name = "zone-runner-lead-shots"
+    name = "zone-runner-laser-cover"
 
     def __init__(self, hello):
         super().__init__(hello)
@@ -21,6 +22,7 @@ class Bot(FirstRun):
         self.loot = PickupDetour(hello)
         self.engagement = Engagement(hello, Cover())
         self.dodge = Dodge(hello, self.nav)
+        self.laser_cover = LaserCover(hello, self.nav, self.engagement.cover)
 
     def act(self, obs):
         action = super().act(obs)
@@ -58,6 +60,9 @@ class Bot(FirstRun):
         walk_time = max(0,distance_to_safe) / max(1,me["stats"]["walk_speed"])
         late = distance_to_safe > 0 and obs["t"] + walk_time + 4 > zone["shrink_start"]
         action["boost"] = (late or not me["in_zone"]) and me["energy"] > 15
+        # laser-cover: while a visible mech charges a laser at us, step behind the nearest
+        # solid cover. Runs before the dodge, which keeps the final say for bullets.
+        self.laser_cover.steer(obs, action, urgent=mode == "return" or late or not me["in_zone"])
         # v8: one brief sideways step when a visible bullet is on course to hit us,
         # never while the zone return is urgent.
         self.dodge.steer(obs, action, urgent=mode == "return" or late or not me["in_zone"])

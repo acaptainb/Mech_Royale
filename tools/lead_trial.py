@@ -222,7 +222,8 @@ def main():
     for obs in et.STREAM:
         a, c = base_bot.act(copy.deepcopy(obs)), cand_bot.act(copy.deepcopy(obs))
         aim_diff += a.get("aim") != c.get("aim")
-        rest = lambda x: {k: v for k, v in x.items() if k not in ("aim", "tick", "debug")}
+        # later versions (laser-cover onward) may also move differently
+        rest = lambda x: {k: v for k, v in x.items() if k not in ("aim", "move", "boost", "jump", "tick", "debug")}
         other_diff += rest(a) != rest(c)
         if a.get("aim") != c.get("aim") and len(trace) < 3:
             trace.append((obs["t"], a["aim"], c["aim"], obs["mechs"][0]["vel"][:2], round(math.dist(obs["mechs"][0]["pos"], obs["self"]["pos"]))))

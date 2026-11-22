@@ -25,7 +25,8 @@ Practice seeds are fixed for the whole event and the bot is deterministic. A ver
 | duel-strafe | `duel-strafe` | `2b8e620b618581f267189f12ca46d12b5be28588` | `3b290b0` (2.63) | 2.46 (submission row SHA still to be matched to `2b8e620`) | -0.17 |
 | duel-weave | `duel-weave` | not a candidate: failed its pre-submission gate | `3b290b0` (2.63) | not submitted | n/a |
 | no-mortar | `no-mortar` | `df1be152ba1bee40a368979ccb01eef1b7f9b347` | `3b290b0` (2.63) | pending | pending |
-| lead-shots | `lead-shots` | this commit (tag `lead-shots-candidate`) | `3b290b0` (2.63) | pending | pending |
+| lead-shots | `lead-shots` | `4d8a32d3c453d3efb430baddb4bd141678417d77` | `3b290b0` (2.63) | **2.90** | +0.27 |
+| laser-cover | `laser-cover` | this commit (tag `laser-cover-candidate`) | `4d8a32d` (2.90) | pending | pending |
 
 ## Log
 
@@ -43,7 +44,8 @@ Practice seeds are fixed for the whole event and the bot is deterministic. A ver
 | combos A and B | `3b290b0` | `f0a59c7`, `32259f0` | v10 + v11, then v12, add to v8 + v7 | v10, v11 and v12 as on their own branches | each trial reproduced its standalone result | 2.60 and 2.58 | revert: both below 2.63, so v10 or v11 fired in practice and cost placements, and v12 cost more |
 | duel-strafe | `3b290b0` | this commit (tag `duel-strafe-candidate`) | walking sideways to the only, clearly visible opponent during ordinary zone movement helps survive the exchange | eligible on 115 of 300 recording decisions; the move changed on all 115 | hit rate under a leading shooter -17% and -11%, but routes stall while the opponent stays in view (see below) | 2.46 (-0.17) | revert: it fired at about 150 m, mostly against a laser user (hitscan, not dodgeable by walking), and replaced progress toward the zone |
 | duel-weave | `3b290b0` | not a candidate | angling the waypoint 20 degrees, alternating sides, in a clear duel keeps progress and cuts hits | eligible on 115 of 300 recording decisions; the move changed on all 115 | 16 held-out routes: 16/16 finished, but 570 hits vs 554 for 2.63 and safety 0.8 s later | not submitted | gate not passed: more hits than 2.63 |
-| lead-shots | `3b290b0` | this commit (tag `lead-shots-candidate`) | aiming the gun where a moving opponent will be when the bullet arrives lands more hits, so we kill more of the house bots that hunt us before we die | every decision with a moving opponent: aim led on 169 of 300 recording decisions | hits 56 to 109 of 130 shots (43% to 84%) in a closed-loop gunfight; never fewer; laser still released onto a moving target; only the aim changes | pending | pending your score |
+| lead-shots | `3b290b0` | this commit (tag `lead-shots-candidate`) | aiming the gun where a moving opponent will be when the bullet arrives lands more hits, so we kill more of the house bots that hunt us before we die | every decision with a moving opponent: aim led on 169 of 300 recording decisions | hits 56 to 109 of 130 shots (43% to 84%) in a closed-loop gunfight; never fewer; laser still released onto a moving target; only the aim changes | **2.90 (+0.27)** | **keep: best score; parent of laser-cover** |
+| laser-cover | `4d8a32d` | this commit (tag `laser-cover-candidate`) | lasers are hitscan and did 76% of our damage, so stepping behind solid cover while a visible mech charges at us avoids beams that walking cannot | 33 recording decisions list a charging mech: 3 cover moves started, 9 decisions moved differently | 8 s laser duel with a building 5-8 m away: 3 beams to 0, hidden 0.60 s after the charge began; open ground, charging elsewhere, urgent return identical; the dodge still wins | pending | pending your score |
 | no-mortar | `3b290b0` | `df1be15` (tag `no-mortar-candidate`) | never carrying a mortar helps: we cannot aim it, and holding one makes every laser hit on us cook off for +60% | whenever v5 would detour for or walk over a mortar (a third of floor weapons); 0 on the recording (no mortar within 70 m) | never carries a mortar in any layout; takes a laser instead when one is near; control identical | pending | pending your score |
 
 ## v6: selective engagement
@@ -236,6 +238,36 @@ Evidence (`py tools/lead_trial.py`: a closed-loop gunfight against `3b290b0`, bo
 - **Recording:** the aim is led on all 169 decisions with an opponent listed, and no command other than aim differs. The first led decision is at t=4.9, 140 m away: yaw +0.850 against +0.807.
 - **Narrowed checks:** the laser trial's recording control now compares fire commands, and the engagement held-out rule R3 also accepts a lead bearing, computed independently in the trial.
 - **Other checks:** the dodge trial, combo check, objective checks, route, pickup and target trials, the probe and `verify.py` all pass.
+
+## laser-cover (on `4d8a32d`, the 2.90 commit)
+
+Lasers are hitscan: walking sideways cannot beat them (duel-strafe went to 2.46), only solid matter between us and the shooter does. On the recording they did 1,260 of the 1,665 damage we took, and a charging mech is visible (`charging: true` with its aim).
+
+The change, `lasercover.py`, applied in `bot.py` before the v8 dodge:
+
+- **Trigger:** a visible game mech is charging, its torso aim is within 12 degrees of the bearing to us, and we are within laser range (280 m).
+- **Conditions:** in the zone, the return not urgent.
+- **Where to go:** the nearest point at 3, 5, 7 or 10 m (12 directions per ring) that is reachable on the ground grid, inside the current circle with 3 m to spare, and hidden from the shooter's eye (z+8) to our body centre by solid matter anywhere on the line (`cover.py`). Among equally near points, the one farthest from the shooter wins.
+- **Movement:** it walks there, boosting while energy stays above 20; if already hidden, it holds still.
+- **Duration:** while the charge lasts and 0.5 s after.
+- **No cover:** normal movement, and the next search waits 0.3 s.
+
+Aim and fire are lead-shots'. The dodge keeps the final say for bullets.
+
+Evidence (`py tools/laser_cover_trial.py`; both bots as real processes; an opponent 100 m away cycling its laser (0.75 s charge, release at full, 1.65 s cooldown); a beam hits when the line is clear by `cover.py`):
+
+| Case (8 s) | Laser hits base / cover | Hidden after (base / cover) |
+| --- | --- | --- |
+| charging at us, building 5-8 m away | 3 / 0 | never / 0.60 s |
+| charging at us, open ground, no cover within 10 m | 3 / 3 | identical actions |
+| charging at someone else (aim 90 degrees off) | 0 / 0 | identical actions |
+| charging at us, zone return urgent (4 s) | 1 / 1 | identical actions |
+| bullet on course while charged at | | the dodge wins: both move `[0.34, -0.94]` |
+
+- **Recording:** 33 decisions list a charging mech; 3 cover moves started (at 18.5 s and 24.2 s); 44 searches found no cover; the move or boost differs on 9 of 300 decisions, aim and fire on none.
+- **Cost:** the worst decision with a full search every decision is 10.4 ms on this machine (budget 50 ms); `verify.py` p99 is 5.6 ms.
+- **Narrowed checks:** the engagement trial excludes the 9 cover decisions from its movement check, and the lead trial's recording check now ignores movement.
+- **Other checks:** the laser trial against v8, the engagement held-out seeds, the dodge trial, combo check, objective checks, route, pickup and target trials, and the probe all pass.
 
 ## Next experiment: laser trigger discipline (#3)
 
