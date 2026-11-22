@@ -114,3 +114,13 @@ Built on squad-fire (`90d298b`, official 3.65) with squad-move (`35a0bdd`, offic
 - `squad_move.py`, the move part: where to stand while fighting the fire part's target (or the nearest engaged mech while no target has a line of fire), the short LoseRule retreats to cover and the laser sidestep.
 
 Movement, highest first: the bullet and shell dodges; the parent's urgent zone return; the LoseRule retreat; the fight move with the mid-fight cube grab; otherwise farm-power's movement. Outside practice mode every decision is farm-power's. Run `py tools/squad_fire_trial.py`, `py tools/squad_move_trial.py` and `py tools/practice_trial.py` (mode switch against farm-power, decision time with the parts busy, fuzz).
+
+## squad-all
+
+Built on squad-fire-move (`8805ed6`) with squad-econ (`f8dc9bf`, official 3.29). Practice mode is one design in three parts, all reading one detector (`practice.py`: after 20 s, while every death so far is one of our kills):
+
+- `squad_fire.py`, the fire part: which mech to face and shoot, every trigger, the weapon wishes and the upgrade order. It decides first, and owns the aim and the triggers.
+- `squad_move.py`, the move part: where to stand while fighting, the short LoseRule retreats to cover and the laser sidestep.
+- `squad_econ.py`, the economy part: loot all match, camping on an inner zone circle, the idle scan and the stuck rule. Its crate and drone shots apply only when the fire part has nothing to shoot, its idle aim only when there is no enemy to face.
+
+Movement, highest first: the stuck recovery; the bullet and shell dodges (the final word); zone must; the LoseRule retreat; the fight move with the mid-fight cube grab; supply drops and relocation; zone should; the fire part's weapon detour; loot; camp or walk to the zone goal. Outside practice mode every decision is farm-power's. Run the three part trials (`py tools/squad_fire_trial.py`, `py tools/squad_move_trial.py`, `py tools/squad_econ_trial.py`) and `py tools/practice_trial.py` (mode switch, decision time with every part busy, fuzz, the movement priority).

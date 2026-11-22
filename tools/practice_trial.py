@@ -14,6 +14,10 @@
 3. Fuzz: thousands of random, well-formed observations in process, before and after 20 s, with
    deaths with and without our kill events: no exception, a JSON action, finite move and aim,
    two boolean triggers, and nothing swallowed by squad_move.py's guard.
+4. With squad_econ.py: the movement priority in practice mode, read from the debug label in
+   scripted decisions (stuck > zone must > retreat > fight > zone should > the laser detour >
+   loot > camp), the loot shot only without a mech target, no fight or stare at an unengaged
+   mech, and the bullet dodge still having the last word.
 Standard library only.
 """
 import copy
@@ -186,6 +190,7 @@ def busy_stream(bot, seconds_per_phase=20.0, seed=5):
     rng = random.Random(seed)
     origin, bearing = near_buildings()
     x, y = origin
+    vx = vy = 0.0
     aim = [0.0, 0.0]
     gun = et.gun()
     las = et.laser(0.0)
@@ -225,6 +230,7 @@ def busy_stream(bot, seconds_per_phase=20.0, seed=5):
             obs["tick"] = 2 * k
             obs["alive"] = 16
             obs["self"]["aim"] = list(aim)
+            obs["self"]["vel"] = [vx, vy, 0.0]
             obs["crates"] = [dict(id=1001 + i, pos=at(origin, 37 * i, 30 + 12 * i), hp=300) for i in range(10)]
             obs["cubes"] = [dict(id=5001 + i, pos=at(origin, 23 * i + 7, 50 + 6 * i)) for i in range(15)]
             obs["projectiles"] = [bullet(9000 + 10 * k + i, here, rng.uniform(0, 360), rng.uniform(20, 80),
@@ -245,8 +251,10 @@ def busy_stream(bot, seconds_per_phase=20.0, seed=5):
                 move = [move[0] / length, move[1] / length]
             step = MECH["walk_speed"] * 0.1
             nxt = (x + move[0] * step, y + move[1] * step)
+            vx = vy = 0.0
             if dt.walkable(nxt):
                 x, y = nxt
+                vx, vy = move[0] * MECH["walk_speed"], move[1] * MECH["walk_speed"]
             yaw = (action.get("aim") or aim)[0]
             turn = (yaw - aim[0] + math.pi) % math.tau - math.pi
             aim = [aim[0] + max(-MECH["turn_rate"] * 0.1, min(MECH["turn_rate"] * 0.1, turn)), 0.0]
@@ -409,6 +417,112 @@ def fuzz(matches=6, length=1000, seed=31):
         print("   first:", errors[0])
 
 
+# --- 4. movement priority (with squad_econ.py) ---------------------------------------------------
+
+def pframe(k, mechs=(), hp=1400.0, crates=(), cubes=(), pickups=(), in_zone=True, zone=None, projectiles=()):
+    """A practice-mode decision (t = 30 s + 0.1 s per decision) on the open lawn."""
+    obs = et.frame(k, mechs, [], in_zone=in_zone, hp=hp, pickups=pickups)
+    obs["t"] = round(30.0 + 0.1 * k, 2)
+    obs["tick"] = 600 + 2 * k
+    obs["alive"] = 16
+    obs["crates"] = [dict(id=1001 + i, pos=list(p), hp=300) for i, p in enumerate(crates)]
+    obs["cubes"] = [dict(id=5001 + i, pos=list(p)) for i, p in enumerate(cubes)]
+    obs["projectiles"] = list(projectiles)
+    if in_zone:
+        obs["zone"].update(shrink_start=1000.0, shrink_end=1050.0)
+    if zone:
+        obs["zone"].update(zone)
+    return obs
+
+
+def scripted(make, n, frozen=False):
+    """Decisions make(k) for k < n through the real entrypoint. The torso is where the bot last
+    aimed it and, unless frozen, our velocity follows the last move (so only a frozen mech looks
+    stuck). Returns [(obs, action, debug label)]."""
+    bot = BotProcess(ROOT, et.HELLO)
+    rows, last = [], {}
+    for k in range(n):
+        obs = make(k)
+        if last.get("aim"):
+            obs["self"]["aim"] = list(last["aim"])
+        move = last.get("move") or [0.0, 0.0]
+        if not frozen:
+            obs["self"]["vel"] = [move[0] * MECH["walk_speed"], move[1] * MECH["walk_speed"], 0.0]
+        action = bot.act(obs)
+        rows.append((obs, action, (action.get("debug") or {}).get("label", "")))
+        last = action
+    bot.close()
+    return rows
+
+
+def priority():
+    print("\n4. movement priority in practice mode (open lawn, t = 30 s; the debug label names the rule)")
+    hunter = lambda key, distance, bearing=OPEN: mech(key, HOME, bearing, distance, aim_at_us=True)
+    two = [hunter(5, 80), hunter(6, 120, OPEN + 40)]
+
+    def show(rows, first=0):
+        seen = []
+        for _, _, label in rows[first:]:
+            if not seen or seen[-1][0] != label:
+                seen.append([label, 0])
+            seen[-1][1] += 1
+        return ", ".join(f"'{label}' x{count}" for label, count in seen)
+
+    def case(text, rows, ok, first=0):
+        print(f"   {text}: {show(rows, first)}  {check(ok, 'priority: ' + text)}")
+
+    rows = scripted(lambda k: pframe(k, [hunter(5, 100)]), 15, frozen=True)
+    labels = [label for _, _, label in rows]
+    start = labels.index("squad unstuck") if "squad unstuck" in labels else None
+    case("the stuck recovery outranks the fight move (our mech cannot move)", rows,
+         start is not None and all(label.startswith("squad fight") for label in labels[:start]))
+    rows = scripted(lambda k: pframe(k, two, hp=630.0, in_zone=False), 10)
+    case("zone must outranks the retreat (two hunters, HP 45%, outside the zone)", rows,
+         all(label.startswith("squad zone must") for _, _, label in rows))
+    rows = scripted(lambda k: pframe(k, two, hp=630.0), 10)
+    case("the LoseRule retreat outranks the fight move (two hunters, HP 45%)", rows,
+         all(label.split()[1] in ("cover", "cornered") for _, _, label in rows))
+    loot = dict(crates=[at(HOME, OPEN + 120, 40)], pickups=[dict(id=8002, kind="laser", pos=at(HOME, OPEN - 120, 30))])
+    rows = scripted(lambda k: pframe(k, [hunter(5, 150)], **loot), 10)
+    case("the fight move outranks the laser detour and loot (hunter at 150 m, crate 40 m, laser 30 m)", rows,
+         all(label.startswith("squad fight") for _, _, label in rows))
+    should = dict(center=list(HOME), radius=400.0, next_center=at(HOME, OPEN + 180, 55)[:2], next_radius=60.0,
+                  shrink_start=35.0, shrink_end=45.0)
+    rows = scripted(lambda k: pframe(k, cubes=[at(HOME, OPEN, 20)], zone=should), 10)
+    case("zone should outranks loot (shrink in 5 s, a cube 20 m away)", rows,
+         all(label.startswith("squad zone should") for _, _, label in rows))
+    rows = scripted(lambda k: pframe(k, cubes=[at(HOME, OPEN + 90, 25)],
+                                     pickups=[dict(id=8002, kind="laser", pos=at(HOME, OPEN, 40))]), 10)
+    case("the laser pickup squad_fire.py chose outranks loot (laser 40 m, cube 25 m)", rows,
+         all(label == "squad pickup" for _, _, label in rows))
+    rows = scripted(lambda k: pframe(k, cubes=[at(HOME, OPEN, 30)]), 10)
+    case("loot when nothing outranks it (a cube 30 m away)", rows,
+         all(label == "squad loot cube 5001" for _, _, label in rows))
+    rows = scripted(lambda k: pframe(k), 10)
+    case("camp with nothing to do", rows, all(label == "squad camp" for _, _, label in rows))
+    rows = scripted(lambda k: pframe(k, [mech(7, HOME, OPEN, 120)]), 12)
+    yaws = [action["aim"][0] for _, action, _ in rows]
+    steps = [abs((b - a + math.pi) % math.tau - math.pi) for a, b in zip(yaws, yaws[1:])]
+    case("an unengaged mech is neither fought nor faced: camp, the idle spin turns on", rows,
+         all(label == "squad camp" for _, _, label in rows) and all(abs(s - 0.35) < 1e-6 for s in steps)
+         and not any(any(action.get("fire") or []) for _, action, _ in rows))
+    rows = scripted(lambda k: pframe(k, crates=[at(HOME, OPEN, 30)]), 10)
+    case("the loot shot with no mech target (a crate 30 m away): the gun fires once aimed", rows,
+         all(label == "squad loot crate shoot 1001" for _, _, label in rows)
+         and any((action.get("fire") or [False])[0] for _, action, _ in rows))
+    rows = scripted(lambda k: pframe(k, [hunter(5, 150)], crates=[at(HOME, OPEN + 120, 30)]), 10)
+    case("no loot shot while there is a mech target (the same crate, a hunter at 150 m)", rows,
+         all(label.startswith("squad fight") for _, _, label in rows))
+    shot = bullet(9100, HOME, OPEN + 90, 150)   # 0.6 s out: far enough to step clear
+    plain_run = scripted(lambda k: pframe(k, [hunter(5, 100)]), 6, frozen=True)
+    dodged = scripted(lambda k: pframe(k, [hunter(5, 100)], projectiles=[shot] if k == 5 else []), 6, frozen=True)
+    before, after = plain_run[5][1]["move"], dodged[5][1]["move"]
+    across = abs(after[0] * shot["vel"][0] + after[1] * shot["vel"][1]) / GUN["speed"]
+    case(f"the bullet dodge keeps the last word (fight move {[round(v, 2) for v in before]},"
+         f" with a bullet on course {[round(v, 2) for v in after]})", dodged[5:],
+         after != before and across < 0.2 and math.hypot(*after) > 0.9)
+
+
 def main():
     revision = sys.argv[sys.argv.index("--baseline") + 1] if "--baseline" in sys.argv else BASELINE
     folder = export(revision)
@@ -416,6 +530,8 @@ def main():
     mode_switch(folder)
     timing()
     fuzz()
+    if (ROOT / "squad_econ.py").exists():
+        priority()
     if FAILURES:
         print("\nFAIL:", "; ".join(FAILURES))
         sys.exit(1)

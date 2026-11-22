@@ -184,9 +184,11 @@ class Engagement:
         radius = self.radius * (1 + self.size_per_cube * other.get("cubes", 0))
         return sideways * distance / speed <= radius
 
-    def decide(self, obs, crates=True):
+    def decide(self, obs, crates=True, farm=True):
         """Return {target, aim, fire, reason}; aim is None when v5's aim should stand.
-        crates=False keeps the farm-power crate shot off (bot.py passes it during a pickup detour)."""
+        crates=False keeps the farm-power crate shot off (bot.py passes it during a pickup detour).
+        farm=False turns off the farm-power drone hunt and crate shot altogether: in practice mode
+        squad_econ.py chooses, approaches and shoots loot itself."""
         self.observe(obs)
         me_state, now = obs["self"], obs["t"]
         me = me_state["pos"]
@@ -199,7 +201,7 @@ class Engagement:
         # farm-power: in the first FARM_S of the match, with no game mech in sight and no mech
         # hitting us, passive drones in range become targets; each kill drops 2 cubes (+4% HP
         # and damage each, and upgrade offers at 1, 3, 6 and 10 cubes).
-        hunting = (now < self.FARM_S
+        hunting = (farm and now < self.FARM_S
                    and not any(o.get("kind") == "mech" for o in obs.get("mechs") or ())
                    and not any(isinstance(k, int) and 0 <= k < 100 for k in self.attackers))
         for other in obs.get("mechs") or ():
@@ -239,7 +241,7 @@ class Engagement:
                 self.decision = dict(target=None, aim=[turn[1], 0.0], fire=False,
                                      reason="turn toward unseen attacker")
             else:
-                self.decision = ((self.crate_shot(obs, me, muzzle, weapons) if crates else None)
+                self.decision = ((self.crate_shot(obs, me, muzzle, weapons) if crates and farm else None)
                                  or dict(target=None, aim=None, fire=False, reason="no opponent"))
             return self.decision
         fact = facts[target]

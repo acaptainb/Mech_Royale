@@ -789,17 +789,18 @@ def scenarios(folder):
     differ = sum(rb["action"] != rc["action"] for rb, rc in zip(b["rows"], c["rows"]))
     check("the same hunters from t = 30 s are fought (control)", modes(c).get("fight", 0) > 0 and differ > 0,
           f"{differ} of {len(c['rows'])} decisions differ; cand modes {modes(c)}")
-    # urgent zone return with hunters about (practice on): the same movement as the baseline. Aim and
-    # triggers are compared too only for the move part alone; with squad_fire.py they are its own
-    # in practice mode, so the check covers move, boost and jump.
+    # urgent zone return with hunters about (practice on): the move part stands aside. Its own branch
+    # compared whole answers with the baseline; in the full practice design the aim and triggers are
+    # squad_fire.py's and the zone plan (squad_econ.py's zone must) walks us back, so the check is
+    # that no fight, grab, retreat or sidestep decision happens.
     far = point(o10, 0, 300)
     zone = dict(center=list(far), radius=150.0, next_center=list(far), next_radius=100.0, shrink_start=1000.0,
                 shrink_end=1050.0, dps=20)
     b, c = pair(folder, "urgent", labels, o10, fresh(two), seconds=8.0, zone=zone, seed=78)
-    steer = lambda r: [{key: row["action"].get(key) for key in ("move", "boost", "jump")} for row in r["rows"]]
-    same = steer(b) == steer(c)
-    check("the same movement as the baseline on an urgent zone return (t 30-38 s, two hunters)", same,
-          f"{len(c['rows'])} decisions, move, boost and jump identical {same}; cand modes {modes(c)}")
+    fought = [m for m in modes(c) if m and (m.split()[0] in ("fight", "grab", "cover", "cornered", "flee")
+                                            or "sidestep" in m)]
+    check("the move part stands aside on an urgent zone return (t 30-38 s, two hunters)", not fought,
+          f"{len(c['rows'])} decisions, cand modes {modes(c)}")
     # our own kill keeps practice on
     one = [hunter(5, point(origin, bearing, 70), mode="hold", hp=200, shoots=False, listed=True),
            hunter(6, point(origin, bearing + 20, 150), mode="hold", shoots=False, listed=True, aim_off=math.pi / 2)]

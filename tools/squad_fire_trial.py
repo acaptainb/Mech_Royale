@@ -233,11 +233,14 @@ def rule_cases():
 
 def judge(rows, window, engaged):
     """engaged: aims at it on every judged decision and the gun fires on one of them.
-    ignored: never aims within 10 degrees of it and never presses a trigger."""
+    ignored: never presses a trigger and never holds the aim on it. With nothing to face the
+    torso scans all round (squad_econ.py's idle aim), so the scan may pass over it, but never
+    within 10 degrees of it on two decisions in a row."""
     picked = [rows[k] for k in window]
     if engaged:
         return all(aims_at(a, o, o["mechs"][0]) for o, a in picked) and any((a.get("fire") or [False])[0] for o, a in picked)
-    return not any(aims_at(a, o, o["mechs"][0], 10.0) or fires(a) for o, a in picked)
+    near = [aims_at(a, o, o["mechs"][0], 10.0) for o, a in picked]
+    return not any(fires(a) for o, a in picked) and not any(p and q for p, q in zip(near, near[1:]))
 
 
 def describe(rows, window):

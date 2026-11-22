@@ -2,7 +2,8 @@
 
 In practice matches the 15 house mechs hunt us together, and only our kills before we die
 count. While practice mode is on (practice.py: from 20 s of match time, while every death so far
-is one of our kills) bot.py asks this part for the move whenever the zone return is not urgent:
+is one of our kills) bot.py asks this part for the move whenever the zone return is not urgent
+and neither the stuck recovery nor zone must (squad_econ.py) is moving us:
 
 - FightMove: while there is a mech to fight (squad_fire.py's target, or the nearest engaged mech
   when no target has a line of fire), score staying put and 16 walkable points 6 m away (range to
@@ -15,9 +16,9 @@ is one of our kills) bot.py asks this part for the move whenever the zone return
   without one, fight on with a line of fire wanted, and with no foe, head for the zone goal.
 - Laser sidestep: a mech charging a laser aimed at us adds a sidestep along the strafe side.
 
-When none of it applies the parent's movement stands. None of it acts during the urgent zone
-return, and the bullet Dodge and ShellDodge in bot.py keep the final word. Outside practice mode
-nothing here touches the action.
+When none of it applies the lower rules of squad_econ.py move us. None of it acts during the
+urgent zone return, and the bullet Dodge and ShellDodge in bot.py keep the final word. Outside
+practice mode nothing here touches the action.
 """
 import copy
 import math
@@ -48,20 +49,6 @@ def zone_penalty(x, y, zone, now):
         soon = min(1.0, max(0.1, 1 - (zone["shrink_start"] - now) / 25))
         penalty += soon * (25 + 0.8 * (edge + 5))
     return penalty
-
-
-def zone_goal(pos, zone):
-    """Where to wait for the next circle: its centre once it is small, otherwise anywhere on or
-    inside a ring a safe margin within it (our own spot when we already are)."""
-    cx, cy = zone["next_center"]
-    radius = zone["next_radius"]
-    if radius <= 30:
-        return [cx, cy]
-    inner = max(0.0, radius - min(30.0, max(3.0, 0.3 * radius)) - 5)
-    d = math.hypot(pos[0] - cx, pos[1] - cy)
-    if d <= inner:
-        return [pos[0], pos[1]]
-    return [cx + (pos[0] - cx) * inner / d, cy + (pos[1] - cy) * inner / d]
 
 
 class Sight:
@@ -471,8 +458,9 @@ class CoverSearch:
 class SquadMove:
     """Practice-mode fight movement: see the module docstring. bot.py calls remember() on every
     decision, and in practice mode assess() once per decision (the LoseRule pulse runs even while
-    the zone return is urgent), then, unless the zone return is urgent, plan() and sidestep() on
-    whatever move was chosen."""
+    a higher rule moves us), then plan() when the stuck recovery and zone must (squad_econ.py) have
+    passed and the zone return is not urgent, and sidestep() on whatever move was chosen below
+    zone must."""
     SEEN_S = 2.5           # a hunter listed this recently still counts
     THREAT_M = 230.0       # cover is sought from hunters this close
     MAX_THREATS = 4
