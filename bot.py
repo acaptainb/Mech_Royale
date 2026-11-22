@@ -5,6 +5,7 @@ import mechfight as mf
 from cover import Cover
 from dodge import Dodge, ShellDodge
 from first_run import Bot as FirstRun
+from kite import Kite
 from loot import PickupDetour
 from navigation import Navigator
 from objectives import Objectives
@@ -12,7 +13,7 @@ from targeting import Engagement
 
 
 class Bot(FirstRun):
-    name = "zone-runner-dodge-tuned"
+    name = "zone-runner-dt-kite"
 
     def __init__(self, hello):
         super().__init__(hello)
@@ -22,6 +23,7 @@ class Bot(FirstRun):
         self.engagement = Engagement(hello, Cover())
         self.dodge = Dodge(hello, self.nav)
         self.shell_dodge = ShellDodge(hello, self.nav, self.engagement.cover)
+        self.kite = Kite(hello, self.nav)
 
     def act(self, obs):
         action = super().act(obs)
@@ -59,6 +61,14 @@ class Bot(FirstRun):
         walk_time = max(0,distance_to_safe) / max(1,me["stats"]["walk_speed"])
         late = distance_to_safe > 0 and obs["t"] + walk_time + 4 > zone["shrink_start"]
         action["boost"] = (late or not me["in_zone"]) and me["energy"] > 15
+        # v6's engagement decision, computed once here so the kite can read the attackers and
+        # threats it tracks; the same decision drives aiming and firing below.
+        engage = self.engagement.decide(obs)
+        # kite-distance: back away from a house mech fighting us or closing in within 70 m,
+        # keeping part of the zone heading. Runs before the dodge, which keeps the final say.
+        self.kite.steer(obs, action, self.engagement,
+                        heading=(dx/length, dy/length) if length > 0.6 else (0.0, 0.0), mode=mode,
+                        urgent=mode == "return" or late or not me["in_zone"], recovering=recovering)
         # v8: one brief sideways step when a visible bullet is on course to hit us,
         # never while the zone return is urgent.
         urgent = mode == "return" or late or not me["in_zone"]
@@ -84,7 +94,6 @@ class Bot(FirstRun):
                     action["reload"] = True
         # v6: opponent choice and the decision to shoot replace the inherited nearest-mech
         # rule. Movement, pickups and how the weapons are triggered are as in v5.
-        engage = self.engagement.decide(obs)
         # During a pickup detour v5 faces the pickup to keep it in view; only a listed
         # opponent overrides that, never the turn toward an unseen attacker.
         if engage["aim"] is not None and not (pickup is not None and engage["target"] is None):
