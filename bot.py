@@ -12,7 +12,7 @@ from targeting import Engagement
 
 
 class Bot(FirstRun):
-    name = "zone-runner-crossing-fire"
+    name = "zone-runner-plating-first"
 
     def __init__(self, hello):
         super().__init__(hello)
@@ -62,7 +62,9 @@ class Bot(FirstRun):
         # never while the zone return is urgent.
         self.dodge.steer(obs, action, urgent=mode == "return" or late or not me["in_zone"])
         if obs["offer"]:
-            priorities = ("armor","plating","nanites","servos","gun_rate","sensors")
+            # plating-first: +15% max HP per stack (about -13% effective damage) before
+            # armor's -8% damage taken; the rest of the order is unchanged.
+            priorities = ("plating","armor","nanites","servos","gun_rate","sensors")
             choices = obs["offer"]["choices"]
             action["pick"] = min(range(len(choices)),key=lambda i:
                 priorities.index(choices[i]["id"]) if choices[i]["id"] in priorities else len(priorities))

@@ -78,3 +78,7 @@ Built on the 2.63 commit (`3b290b0`). The gun aims where a moving opponent will 
 ## crossing-fire
 
 Built on lead-shots (`4d8a32d`, official 2.90). When the gun's aim is led, the bot also fires at passive opponents that v6 held fire on because unled shots would miss. Run `py tools/crossing_fire_trial.py` to compare against lead-shots.
+
+## plating-first
+
+Built on crossing-fire (`c120041`, official 2.94). Upgrade offers take plating (+15% max HP) before armor (-8% damage taken); the rest of the order is unchanged. Run `py tools/offer_trial.py` to compare picks against crossing-fire.
