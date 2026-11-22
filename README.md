@@ -82,3 +82,7 @@ Built on lead-shots (`4d8a32d`, official 2.90). The bot steps out of the blast o
 ## mortar-dodge + crossing-fire
 
 Built on mortar-dodge (`1645c22`, official 3.00) with crossing-fire's change (`c120041`, official 2.94) added unchanged: the shell dodge owns movement when a mortar shell threatens the route, and the gun also fires at a passive opponent when its aim is led. Run `py tools/combo_md_cf_check.py` to check that it moves exactly as mortar-dodge and fires exactly as crossing-fire.
+
+## hide-spot on the combination
+
+hide-spot's one change (`c08eef9`, built on crossing-fire) moved onto the 3.04 combination (`4f4596e`, mortar-dodge + crossing-fire): in plain zone mode with nobody listed, the bot waits at the least exposed walkable node within 60 m of the next centre (`hide.py`, `exposure.u8` from `tools/build_exposure.py`) instead of standing in the open on the centre. Run `py tools/hide_trial.py` for the exposure measurement, the hunter trial and the controls against the exported 4f4596e.

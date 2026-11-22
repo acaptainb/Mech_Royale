@@ -160,7 +160,10 @@ def simulate(controller, scenario):
             wall = scenario.get("wall")
             if walkable(candidate) and not (wall and math.dist(candidate, wall[0]) < wall[1]):
                 x, y = candidate
-        if result["reached"] is None and math.dist((x, y), zone["next_center"]) <= 4:
+        # hide-spot: a bot that waits at a sheltered spot near the centre has arrived on it.
+        spot = getattr(getattr(bot, "hide", None), "spot", None)
+        if result["reached"] is None and (math.dist((x, y), zone["next_center"]) <= 4
+                                          or (spot is not None and math.dist((x, y), spot) <= 3)):
             result["reached"] = round(now + DT, 1)
             if not scenario.get("run_out"):
                 break

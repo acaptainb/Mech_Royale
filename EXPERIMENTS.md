@@ -28,11 +28,13 @@ Practice seeds are fixed for the whole event and the bot is deterministic. A ver
 | lead-shots | `lead-shots` | `4d8a32d3c453d3efb430baddb4bd141678417d77` | `3b290b0` (2.63) | 2.90 (parent of the batch candidates) | +0.27 |
 | crossing-fire | `crossing-fire` | `c1200411b37163ea2496aefbb861a496d2bcea12` | `4d8a32d` (2.90) | 2.94 | +0.04 |
 | offense-upgrades | `offense-upgrades` | `bb0e5e0dc51f8f75356a726230ca080da66706d3` | `4d8a32d` (2.90) | 2.85 | -0.05 |
-| laser-cover | `laser-cover` | `1961af48491445c4d10d88c767f901d163a98668` | `4d8a32d` (2.90) | 2.90 | +0.00 (most likely never fired in practice) |
+| laser-cover | `laser-cover` | `1961af48491445c4d10d88c767f901d163a98668` | `4d8a32d` (2.90) | 2.90 | +0.00 (probably never fired in practice) |
 | chase-wounded | `chase-wounded` | `ef880813566961c48504d37db14e2e8234a8f3ef` | `4d8a32d` (2.90) | 2.75 | -0.15 (walking toward opponents lost) |
-| mortar-arc | `mortar-arc` | `8670353ea471e3156f988b13b46c7ad01daea128` | `4d8a32d` (2.90) | 2.90 | +0.00 (exactly the parent: most likely never fired, so we rarely or never shoot while holding a ready mortar) |
-| mortar-dodge | `mortar-dodge` | `1645c22576e99d0afe6cb9ce8ec37ad0d9bae616` | `4d8a32d` (2.90) | **3.00** (best; entered in the final) | +0.10 |
-| mortar-dodge + crossing-fire | `combo-mortar-dodge-crossing-fire` | this commit (tag `combo-mortar-dodge-crossing-fire-candidate`) | `1645c22` (3.00) | pending | pending |
+| mortar-arc | `mortar-arc` | `8670353ea471e3156f988b13b46c7ad01daea128` | `4d8a32d` (2.90) | 2.90 | +0.00 (exactly the parent: probably never fired, so we rarely or never shoot while holding a ready mortar; an exact tie can also come from small changes cancelling) |
+| mortar-dodge | `mortar-dodge` | `1645c22576e99d0afe6cb9ce8ec37ad0d9bae616` | `4d8a32d` (2.90) | 3.00 | +0.10 |
+| mortar-dodge + crossing-fire | `combo-mortar-dodge-crossing-fire` | `4f4596e12bf916fe76039a7e75652cf4036d35f4` | `1645c22` (3.00) | **3.04** (best; entered in the final) | +0.04 (exactly additive: +0.10 and +0.04 over 2.90) |
+| hide-spot | `hide-spot` | `c08eef931025c4ca3b129514e63d21c11b8519ad` | `c120041` (2.94) | pending | pending |
+| hide-spot on the combination | `hide-spot-on-combo` | this commit (tag `hide-spot-on-combo-candidate`) | `4f4596e` (3.04) | pending | pending |
 
 ## Log
 
@@ -53,7 +55,8 @@ Practice seeds are fixed for the whole event and the bot is deterministic. A ver
 | lead-shots | `3b290b0` | this commit (tag `lead-shots-candidate`) | aiming the gun where a moving opponent will be when the bullet arrives lands more hits, so we kill more of the house bots that hunt us before we die | every decision with a moving opponent: aim led on 169 of 300 recording decisions | hits 56 to 109 of 130 shots (43% to 84%) in a closed-loop gunfight; never fewer; laser still released onto a moving target; only the aim changes | **2.90 (+0.27)** | **keep: best score; parent of the next candidates** |
 | no-mortar | `3b290b0` | `df1be15` (tag `no-mortar-candidate`) | never carrying a mortar helps: we cannot aim it, and holding one makes every laser hit on us cook off for +60% | whenever v5 would detour for or walk over a mortar (a third of floor weapons); 0 on the recording (no mortar within 70 m) | never carries a mortar in any layout; takes a laser instead when one is near; control identical | 2.58 (-0.05) | revert: carrying the mortar is worth more than the cook-off risk |
 | mortar-dodge | `4d8a32d` | `1645c22` (tag `mortar-dodge-candidate`) | stepping out of the blast of a visible mortar shell that would land on our route cuts the damage taken (200 direct + 160 splash per shell) | only while a mortar shell is visible and would hit our route within 2.5 s; 0 on the recording (no shell listed) | closed-loop shell damage 10,240 to 0 (tuning) and 12,040 to 360 (held-out); every route finished, 0 zone exits; 4 controls identical on every decision | **3.00 (+0.10)** | **keep: best score; parent of the combination** |
-| mortar-dodge + crossing-fire | `1645c22` | this commit (tag `combo-mortar-dodge-crossing-fire-candidate`) | the two changes that scored above lead-shots (2.90) on their own add up | the shell dodge as in mortar-dodge (0 on the recording); crossing-fire's led fire as in `c120041` (fire differs from mortar-dodge on 8 of 300 recording decisions) | moves exactly as mortar-dodge and fires exactly as crossing-fire on every checked decision; 32 shell routes and 9 gunfights identical to the parent whose change is active | pending | pending your score |
+| mortar-dodge + crossing-fire | `1645c22` | `4f4596e` (tag `combo-mortar-dodge-crossing-fire-candidate`) | the two changes that scored above lead-shots (2.90) on their own add up | the shell dodge as in mortar-dodge (0 on the recording); crossing-fire's led fire as in `c120041` (fire differs from mortar-dodge on 8 of 300 recording decisions) | moves exactly as mortar-dodge and fires exactly as crossing-fire on every checked decision; 32 shell routes and 9 gunfights identical to the parent whose change is active | **3.04 (+0.04)** | **keep: best score; parent of the rebased candidates** |
+| hide-spot on the combination | `4f4596e` | this commit (tag `hide-spot-on-combo-candidate`) | hide-spot's one change (wait at the least exposed walkable node near the next centre instead of in the open on the centre) also helps on top of the 3.04 combination | as hide-spot (`c08eef9`): plain zone mode with nobody listed and nobody hitting us for 5 s, in most circles (a spot at 185 of 300 sampled centres); 0 on the recording | see the section below | pending | pending your score |
 
 ## v6: selective engagement
 
@@ -356,3 +359,24 @@ Both changes scored above their shared parent, lead-shots (`4d8a32d`, 2.90), on 
 | `py tools/shell_dodge_trial.py --baseline c120041` | identical to mortar-dodge's own run: shell damage 10,240 to 0 (tuning) and 12,040 to 360 (held-out), every route finished, 0 zone exits; scripted checks and controls pass; 0 of 300 recording answers differ from crossing-fire |
 | `py tools/crossing_fire_trial.py --baseline 1645c22` | fires where mortar-dodge held on the passive crossing opponents and lands hits; controls identical; only fire differs on the recording |
 | regressions | engagement trial and `--heldout`, `lead_trial --baseline 3b290b0`, `entrypoint_trial --baseline 4588e6b`, dodge trial, combo check, objective checks (12), route (150/150), pickup and target (11) trials, engagement probe and `verify.py` all pass |
+
+## hide-spot on the combination (on `4f4596e`, the 3.04 commit)
+
+The one change of hide-spot (`c08eef9`, built on crossing-fire `c120041` and still pending there) moved unchanged onto the 3.04 combination of mortar-dodge and crossing-fire. In plain zone mode, with no mech listed and no mech hitting us for 5 s, the goal becomes the least exposed walkable node within 60 m of the next centre (and within 100 m on foot, 8 m inside the next circle), used only when it is at least 0.10 less exposed than the centre; on the spot the bot holds still. Exposure comes from `exposure.u8` (byte-identical to `c08eef9`'s, 48,508 bytes; `.gitattributes` keeps `*.u8` binary), built by `tools/build_exposure.py`. Files: `hide.py`, `exposure.u8`, `.gitattributes`, the `bot.py` hook, the Dockerfile and `.dockerignore` lines, `tools/build_exposure.py`, `tools/hide_trial.py` (baseline now `4f4596e`), and hide-spot's narrowings of `objective_checks.py`, `route_trial.py` and `pickup_trial.py` (they accept standing on the hide spot as reaching the zone goal). Ready name `zone-runner-md-cf-hide-spot`.
+
+| Check (`py tools/hide_trial.py`, against the exported `4f4596e`) | Baseline | hide-spot on the combination |
+| --- | --- | --- |
+| exposure where it stands, 18 zones with a spot | 0.58 | 0.34 (lower in 18 of 18) |
+| same, 6 zones with no clearly better spot (control) | 0.33 | 0.33 (identical actions) |
+| 3 patrolling hunters, 12 x 90 s: median first seen, damage, deaths | 0.45 s, 15,885, 9 of 12 | 2.75 s, 15,030, 10 of 12 |
+| 3 hunters walking at our true position, 12 x 90 s | 3.35 s, 11,385, 7 of 12 | 46.65 s, 8,572, 5 of 12 |
+| controls: urgent zone return (while it lasts), opponent listed, supply drop at 60% HP | | identical on every decision |
+| recording | | 0 of 299 decisions differ |
+
+These are the same numbers as hide-spot against crossing-fire: the hunter trial has no shells and no passive opponent, so the combination's two changes do not act there.
+
+| Other check | Result |
+| --- | --- |
+| `py tools/combo_md_cf_check.py` | PASS unchanged: the recording, the scripted shell decisions, the 32 shell routes and the 9 gunfights never trigger the hide spot (an opponent or shell shooter is listed, or no spot is clearly better) |
+| `py tools/shell_dodge_trial.py --baseline c120041` | shell damage 10,240 to 0 and 12,040 to 360 as for mortar-dodge; 0 of 300 recording answers differ from crossing-fire. With the default baseline (lead-shots) the recording check reports crossing-fire's own 8 fire changes, exactly as for `4f4596e` itself |
+| regressions | engagement trial and `--heldout`, crossing-fire trial, `lead_trial --baseline 3b290b0`, `entrypoint_trial --baseline 4588e6b`, dodge trial, combo check, objective checks (12), route (150/150; median 42.2 s against 40.5 s, standing on the spot counts as arrival), pickup and target (11) trials, engagement probe and `verify.py` pass |

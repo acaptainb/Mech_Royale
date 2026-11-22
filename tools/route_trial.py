@@ -30,7 +30,10 @@ def trial(controller, start, goal, grid, hello, template):
             gy = round((candidate[1]-grid.oy)/grid.step)
             if 0 <= gx < grid.width and 0 <= gy < grid.height and grid.free[gy*grid.width+gx]:
                 me["pos"][axis] = candidate[axis]
-        if math.dist(me["pos"][:2],goal) <= 4:
+        # hide-spot: a bot that waits at a sheltered spot near the zone centre (bot.hide.spot)
+        # has arrived when it stands on that spot.
+        spot = getattr(getattr(bot, "hide", None), "spot", None)
+        if math.dist(me["pos"][:2],goal) <= 4 or (spot is not None and math.dist(me["pos"][:2],spot) <= 3):
             return i+1
     return None
 
