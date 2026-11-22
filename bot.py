@@ -142,8 +142,7 @@ class Bot(FirstRun):
             # squad-econ: with nothing to face, shoot the loot target (gun only) or scan idly;
             # then the stuck rule watches the final move.
             self.squad.finish(obs, action, engage)
-            mf.draw.label(f"squad {self.squad.mode}" + (f" {self.squad.target[0]} {self.squad.target[1]}"
-                                                        if self.squad.target else ""))
+            mf.draw.label(f"squad {self.squad.mode}" + (f" {self.squad.target[1]}" if self.squad.target else ""))
         return action
 
 
