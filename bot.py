@@ -1,4 +1,10 @@
-"""Zone navigation, resource decisions, an early weapon detour and selective engagement for Mech Royale."""
+"""Zone navigation, resource decisions, an early weapon detour and selective engagement for Mech Royale.
+
+Practice mode (practice.py: after 20 s, while every death so far is one of our kills) hands the
+fight to the practice design: squad_fire.py decides what to face and shoot, how each trigger is
+pulled, the weapon wishes and the upgrade order; squad_move.py decides where to stand in a fight.
+Outside practice mode every decision is farm-power's.
+"""
 import math
 
 import mechfight as mf
@@ -9,12 +15,14 @@ from first_run import Bot as FirstRun
 from loot import PickupDetour
 from navigation import Navigator
 from objectives import Objectives
-from squad import PracticeMode, SquadFire, pick_upgrade
+from practice import PracticeMode
+from squad_fire import SquadFire, pick_upgrade
+from squad_move import SquadMove, zone_goal
 from targeting import Engagement
 
 
 class Bot(FirstRun):
-    name = "zone-runner-squad-fire"
+    name = "zone-runner-squad-fire-move"
 
     def __init__(self, hello):
         super().__init__(hello)
@@ -25,14 +33,18 @@ class Bot(FirstRun):
         self.dodge = Dodge(hello, self.nav)
         self.shell_dodge = ShellDodge(hello, self.nav, self.engagement.cover)
         self.farm = CubeFarm(hello)
-        # squad-fire: practice-mode opponent choice, triggers, weapon wishes and upgrades.
+        # Practice mode: one detector, read by both parts of the practice design.
         self.practice = PracticeMode()
-        self.squad = SquadFire(hello, self.engagement)
+        self.squad_fire = SquadFire(hello, self.engagement)
+        self.squad_move = SquadMove(hello, self.engagement.cover, self.engagement.centre)
 
     def act(self, obs):
         action = super().act(obs)
         squad = self.practice.update(obs)
-        self.squad.observe(obs)
+        # Both parts keep their memory on every decision, so hits and hunters seen before the mode
+        # starts count; outside practice mode they never touch the action.
+        self.squad_fire.observe(obs)
+        self.squad_move.remember(obs)
         me, zone = obs["self"], obs["zone"]
         x, y, z = me["pos"]
         goal = self.objectives.choose(obs, self.nav)
@@ -75,6 +87,19 @@ class Bot(FirstRun):
         # v8: one brief sideways step when a visible bullet is on course to hit us,
         # never while the zone return is urgent.
         urgent = mode == "return" or late or not me["in_zone"]
+        # v6: opponent choice and the decision to shoot replace the inherited nearest-mech
+        # rule. Movement, pickups and how the weapons are triggered are as in v5.
+        # farm-power: in the first 180 s with nobody to fight, the engagement also shoots passive
+        # drones and crates within 150 m (targeting.py); crates not during a pickup detour, which
+        # keeps facing its pickup. It only reads the observation, so it is asked here, before the
+        # dodges; the cube farm above still sees the previous decision's attackers.
+        engage = self.engagement.decide(obs, crates=pickup is None)
+        plan = None
+        if squad:
+            # Practice mode: squad_fire.py decides what to shoot first, so the fight movement
+            # (squad_move.py) knows the mech to fight.
+            plan = self.squad_fire.decide(obs, engage, pickup)
+            self.squad_fight_move(obs, action, plan, urgent)
         self.dodge.steer(obs, action, urgent=urgent)
         # mortar-dodge: step out of the blast of a visible mortar shell that would land on
         # our route; it has the last word on movement, and never acts on an urgent return.
@@ -95,12 +120,6 @@ class Bot(FirstRun):
             for weapon in me["weapons"]:
                 if weapon and weapon["kind"] == "gun" and weapon.get("ammo",12) <= 5:
                     action["reload"] = True
-        # v6: opponent choice and the decision to shoot replace the inherited nearest-mech
-        # rule. Movement, pickups and how the weapons are triggered are as in v5.
-        # farm-power: in the first 180 s with nobody to fight, the engagement also shoots passive
-        # drones and crates within 150 m (targeting.py); crates not during a pickup detour, which
-        # keeps facing its pickup.
-        engage = self.engagement.decide(obs, crates=pickup is None)
         # During a pickup detour v5 faces the pickup to keep it in view; only a listed
         # opponent overrides that, never the turn toward an unseen attacker.
         if engage["aim"] is not None and not (pickup is not None and engage["target"] is None):
@@ -124,15 +143,34 @@ class Bot(FirstRun):
                 fire[slot] = False
         action["fire"] = fire
         if squad:
-            self.squad_overrides(obs, action, engage, pickup)
+            self.squad_overrides(obs, action, plan)
         return action
 
-    def squad_overrides(self, obs, action, engage, pickup):
-        """squad-fire, practice mode only (after 20 s while every death is one of our kills):
-        the practice-mode choice of what to face and shoot, every trigger, the early reload, the
-        weapon take and swap, and the upgrade order replace the parent's. Movement is untouched."""
+    def squad_fight_move(self, obs, action, plan, urgent):
+        """Practice mode, before the dodges: unless the zone return is urgent, the LoseRule retreat
+        (unless finishing or late), else the fight move with the mid-fight cube grab against the
+        target (or the nearest engaged mech while no target has a line of fire), then the laser
+        sidestep; otherwise the parent's move stands."""
+        fighter = self.squad_move
+        fighter.assess(obs, plan["target"] if plan["target"] is not None else plan["nearest"])
+        if urgent:
+            return
+        step = fighter.plan(obs, zone_goal(obs["self"]["pos"], obs["zone"]))
+        if step is not None:
+            action["move"], action["boost"], action["jump"] = step["move"], step["boost"], False
+        side = fighter.sidestep(obs, action.get("move"))
+        if side is not None:
+            action["move"] = side[0]
+            if side[1]:
+                action["boost"] = True
+        if step is not None or side is not None:
+            # Debug text only (never read by the server): what set the move this decision.
+            mf.draw.text(" ".join(["squad"] + ([step["mode"]] if step else []) + (["sidestep"] if side else [])))
+
+    def squad_overrides(self, obs, action, plan):
+        """Practice mode only: squad_fire.py's choice of what to face and shoot, every trigger,
+        the early reload, the weapon take and swap, and the upgrade order replace the parent's."""
         me = obs["self"]
-        plan = self.squad.decide(obs, engage, pickup)
         if plan["aim"] is not None:
             action["aim"] = plan["aim"]
         action["fire"] = plan["fire"]

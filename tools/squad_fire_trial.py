@@ -458,7 +458,7 @@ def loot(folder):
 # --- 5. upgrades ---------------------------------------------------------------------------------
 
 def upgrades(folder):
-    from squad import UPGRADES
+    from squad_fire import UPGRADES
     rng = random.Random(4242)
     known = [u["id"] for u in CONFIG["upgrades"]]
     offers = []

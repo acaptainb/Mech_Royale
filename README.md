@@ -89,7 +89,7 @@ Built on dodge-tuned (`dd9b731`, official 3.10). In the first 180 s, with nobody
 
 ## squad-fire
 
-Built on farm-power (`8064167`, official 3.25). In practice matches, where the 15 house bots hunt us together and only our kills score, it changes what the bot shoots and how it pulls each trigger (`squad.py`). Practice mode starts after 20 s of match time and lasts while every death so far is one of our kills; outside it the bot is farm-power exactly, and movement and the dodges never change.
+Built on farm-power (`8064167`, official 3.25). In practice matches, where the 15 house bots hunt us together and only our kills score, it changes what the bot shoots and how it pulls each trigger (`squad.py`, now `squad_fire.py`). Practice mode starts after 20 s of match time and lasts while every death so far is one of our kills; outside it the bot is farm-power exactly, and movement and the dodges never change.
 
 - Only engaged mechs are shot or looked at: within 60 m, hit us in the last 6 s, late in the match, closing faster than 3 m/s within 180 m, under 40% HP within 160 m, or aiming at us within 190 m.
 - The target is the engaged mech in clear view within 240 m with the lowest distance + 0.2 x HP, with bonuses for low HP, for being the current target, for hitting us and for closing.
@@ -97,3 +97,20 @@ Built on farm-power (`8064167`, official 3.25). In practice matches, where the 1
 - Laser over lightning (sought from 240 m, swapped in for lightning), never a mortar, and a laser-first upgrade order.
 
 Run `py tools/squad_fire_trial.py` (scenarios against the exported parent, a closed-loop fight, timing and a fuzz pass; `--quick` skips the fight).
+
+## squad-move
+
+Built on farm-power (`8064167`, official 3.25). In practice mode the bot chooses where to stand in a fight: a 17-point scorer keeps the range its weapons like, a line of fire when a shot is ready, and out of sight of the other hunters, with a random strafe. It retreats to cover in 1.5 s pulses only when outnumbered and hurt, and sidesteps aimed laser charges. Official 3.52.
+
+## squad-econ
+
+Built on farm-power (`8064167`, official 3.25). In practice mode the bot gathers cubes, crates and drones all match, camps still on an inner circle of the zone between fights, scans all round with the torso when there is nothing to face, and frees itself when it stops moving against an obstacle. Official 3.29.
+
+## squad-fire-move
+
+Built on squad-fire (`90d298b`, official 3.65) with squad-move (`35a0bdd`, official 3.52). Practice mode is one design in two parts, both reading one detector (`practice.py`: after 20 s, while every death so far is one of our kills):
+
+- `squad_fire.py`, the fire part: which mech to face and shoot, how each trigger is pulled, the weapon wishes and the upgrade order. It decides first on every practice decision.
+- `squad_move.py`, the move part: where to stand while fighting the fire part's target (or the nearest engaged mech while no target has a line of fire), the short LoseRule retreats to cover and the laser sidestep.
+
+Movement, highest first: the bullet and shell dodges; the parent's urgent zone return; the LoseRule retreat; the fight move with the mid-fight cube grab; otherwise farm-power's movement. Outside practice mode every decision is farm-power's. Run `py tools/squad_fire_trial.py`, `py tools/squad_move_trial.py` and `py tools/practice_trial.py` (mode switch against farm-power, decision time with the parts busy, fuzz).

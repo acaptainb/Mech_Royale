@@ -1,9 +1,10 @@
-"""squad-fire: opponent choice and trigger handling for practice matches.
+"""squad_fire: what to shoot and how, the fire part of the practice-mode design.
 
-In practice the 15 house bots hunt us as one squad and only our kills score. `PracticeMode`
-tells when we are in that match: after the first 20 s, and only while every death so far is
-one of our kills. `SquadFire` then replaces the v6 choice of opponent and the trigger handling
-for every slot. Movement, the dodges and the farming rules stay the parent's.
+In practice the 15 house bots hunt us as one squad and only our kills score. While practice
+mode is on (practice.py: after the first 20 s, while every death so far is one of our kills)
+`SquadFire` replaces the v6 choice of opponent and the trigger handling for every slot, the
+weapon wishes (loot.py) and the upgrade order. squad_move.py decides where we stand in a fight
+and fights this part's target. The dodges and the farming rules stay the parent's.
 
 Distances here are horizontal unless a comment says otherwise. Angles are radians.
 """
@@ -35,42 +36,6 @@ def pick_upgrade(offer):
         return None
     rank = {name: k for k, name in enumerate(UPGRADES)}
     return min(range(len(choices)), key=lambda i: (rank.get(choices[i].get("id"), len(UPGRADES)), i))
-
-
-class PracticeMode:
-    """Active from t > START_S while no mech has died to anything but us.
-
-    The starting head count is the first observation's `alive`. Each decision, deaths we did not
-    cause = start - alive - our kills. A positive count on OUTSIDE_TICKS decisions in a row (the
-    wait covers a decision of lag between `alive` and our `kill` event) turns the mode off for
-    the rest of the match."""
-    START_S = 20.0
-    OUTSIDE_TICKS = 5
-
-    def __init__(self):
-        self.start_alive = None
-        self.kills = set()
-        self.outside = 0
-        self.off = False
-        self.active = False
-        self.switched_off_at = None   # match time the mode was turned off, for local reports
-
-    def update(self, obs):
-        alive = obs.get("alive")
-        if self.start_alive is None and alive is not None:
-            self.start_alive = alive
-        for event in obs.get("events") or ():
-            if event.get("type") == "kill":
-                key = event.get("target")
-                self.kills.add(key if key is not None else ("kill", len(self.kills)))
-        if alive is not None and self.start_alive is not None and not self.off:
-            others = self.start_alive - alive - len(self.kills)
-            self.outside = self.outside + 1 if others > 0 else 0
-            if self.outside >= self.OUTSIDE_TICKS:
-                self.off = True
-                self.switched_off_at = obs.get("t")
-        self.active = not self.off and obs.get("t", 0.0) > self.START_S
-        return self.active
 
 
 class SquadFire:
@@ -357,8 +322,9 @@ class SquadFire:
     def decide(self, obs, parent, pickup=None):
         """Return {target, reason, aim, fire, reload}. `parent` is the v6 engagement's decision for
         this observation (its farming shots are kept); `pickup` is the pickup detour's point.
-        aim None keeps the aim already in the action. observe() must have seen this observation
-        (bot.py calls it on every decision, so hits from before the mode started count)."""
+        aim None keeps the aim already in the action. nearest is the closest engaged listed mech,
+        which squad_move.py fights when no target has a line of fire. observe() must have seen this
+        observation (bot.py calls it on every decision, so hits from before the mode started count)."""
         now, me = obs["t"], obs["self"]
         pos = me["pos"]
         me_stats = me.get("stats") or {}
@@ -424,8 +390,10 @@ class SquadFire:
         if aim is not None:
             aim = [aim[0], max(me_stats.get("min_pitch", -0.7), min(me_stats.get("max_pitch", 1.3), aim[1]))]
         self.counts[reason] = self.counts.get(reason, 0) + 1
+        nearest = min(facts, key=lambda f: (f["distance"], str(f["other"].get("id"))), default=None)
         self.decision = dict(target=target["other"].get("id") if target else None, reason=reason,
                              subject=subject, aim=aim, fire=fire, reload=reload,
+                             nearest=nearest["other"].get("id") if nearest else None,
                              engaged={f["other"].get("id"): f["reason"] for f in facts},
                              ignored=ignored, scores={key: round(s, 1) for s, key, _ in scored})
         return self.decision

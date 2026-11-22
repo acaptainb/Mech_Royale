@@ -14,4 +14,6 @@
 !cover.i16
 !targeting.py
 !heights.i16
-!squad.py
+!practice.py
+!squad_fire.py
+!squad_move.py

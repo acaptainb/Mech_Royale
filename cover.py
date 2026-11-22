@@ -53,14 +53,25 @@ class Cover:
         spacing = (length - skip_start - skip_end) / steps
         limit = max(1, round(self.MIN_SOLID_M / spacing))
         blocked = 0
+        # solid() written into the loop: the same arithmetic on every sample, so the same answer,
+        # in about half the time (the practice parts test many lines per decision).
+        sx, sy, sz = start[0], start[1], start[2]
+        dx, dy, dz = end[0] - sx, end[1] - sy, end[2] - sz
+        ox, oy, cell, nx, ny = self.ox, self.oy, self.cell, self.nx, self.ny
+        ground, top, lift_low, lift_high = self.ground, self.top, self.lift_low, self.lift_high
         for k in range(steps + 1):
             f = (skip_start + k * spacing) / length
-            hit = self.solid(start[0] + f * (end[0] - start[0]), start[1] + f * (end[1] - start[1]),
-                             start[2] + f * (end[2] - start[2]))
-            if hit == 2:
-                return False  # bridge decks are thinner than the threshold; any crossing blocks
-            if hit:
-                blocked += 1
-                if blocked >= limit:
-                    return False
+            i = int((sx + f * dx - ox) / cell)
+            j = int((sy + f * dy - oy) / cell)
+            if 0 <= i < nx and 0 <= j < ny:
+                c = j * nx + i
+                h = (sz + f * dz) * 100
+                if not (h < ground[c] or h <= top[c]):
+                    low = lift_low[c]
+                    if low != NONE and low <= h <= lift_high[c]:
+                        return False  # bridge decks are thinner than the threshold; any crossing blocks
+                    continue
+            blocked += 1  # terrain, a wall, or the map edge
+            if blocked >= limit:
+                return False
         return True
