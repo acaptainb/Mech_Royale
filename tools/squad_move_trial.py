@@ -590,8 +590,8 @@ def modes(r):
     return out
 
 
-def fresh(spec):
-    return [dict(h) for h in spec]
+def fresh(setup):
+    return [dict(h) for h in setup]
 
 
 CHECKS = []
@@ -613,8 +613,8 @@ def scenarios(folder):
                                        ("laser, foe from 60 m", True, 60, 120.0),
                                        ("laser, foe from 170 m", True, 170, 120.0)):
         foe = point(origin, bearing, start_d)
-        spec = [hunter(5, foe, mode="hold", shoots=False, listed=True)]
-        b, c = pair(folder, name, labels, origin, fresh(spec), seconds=20.0, laser=laser, damage_hunters=False)
+        setup = [hunter(5, foe, mode="hold", shoots=False, listed=True)]
+        b, c = pair(folder, name, labels, origin, fresh(setup), seconds=20.0, laser=laser, damage_hunters=False)
         tail = lambda r: mean(row["dist"][0] for row in r["rows"] if row["t"] >= T0 + 12)
         ok = abs(tail(c) - want) <= 15
         check(f"holds range, {name}", ok, f"mean distance over the last 8 s: base {tail(b):.0f} m, cand {tail(c):.0f} m"
@@ -622,8 +622,8 @@ def scenarios(folder):
 
     # 2. a spot with a line of fire
     o2, foe2, good = fire_spot()
-    spec = [hunter(5, foe2, mode="hold", shoots=False, listed=True)]
-    b, c = pair(folder, "line of fire", labels, o2, fresh(spec), seconds=0.1, move_us=False, damage_hunters=False)
+    setup = [hunter(5, foe2, mode="hold", shoots=False, listed=True)]
+    b, c = pair(folder, "line of fire", labels, o2, fresh(setup), seconds=0.1, move_us=False, damage_hunters=False)
     mv = c["rows"][0]["move"]
     target = (o2[0] + 6 * mv[0], o2[1] + 6 * mv[1])
     ok = math.hypot(*mv) > 0.9 and shot_clear(target, foe2) and not shot_clear(o2, foe2)
@@ -634,9 +634,9 @@ def scenarios(folder):
 
     # 3. a spot a second enemy cannot see
     o3, foe3, second, unseen = watcher_spot()
-    spec = [hunter(5, foe3, mode="hold", shoots=False, listed=True),
+    setup = [hunter(5, foe3, mode="hold", shoots=False, listed=True),
             hunter(6, second, mode="hold", shoots=False, listed=True, aim_off=math.pi / 2)]
-    b, c = pair(folder, "second watcher", labels, o3, fresh(spec), seconds=0.1, move_us=False, damage_hunters=False)
+    b, c = pair(folder, "second watcher", labels, o3, fresh(setup), seconds=0.1, move_us=False, damage_hunters=False)
     mv = c["rows"][0]["move"]
     target = (o3[0] + 6 * mv[0], o3[1] + 6 * mv[1]) if math.hypot(*mv) > 0.5 else o3
     unseen_now = not COVER.clear(eye(second), body(target, 0.6), skip_start=1.0, skip_end=1.0)
@@ -647,9 +647,9 @@ def scenarios(folder):
 
     # 4. strafe: lateral steps that flip side; the same run twice is identical
     foe = point(origin, bearing, 85)
-    spec = [hunter(5, foe, mode="hold", shoots=False, listed=True)]
-    b, c = pair(folder, "strafe", labels, origin, fresh(spec), seconds=10.0, damage_hunters=False)
-    c2 = run(ROOT, origin, fresh(spec), seconds=10.0, damage_hunters=False)
+    setup = [hunter(5, foe, mode="hold", shoots=False, listed=True)]
+    b, c = pair(folder, "strafe", labels, origin, fresh(setup), seconds=10.0, damage_hunters=False)
+    c2 = run(ROOT, origin, fresh(setup), seconds=10.0, damage_hunters=False)
     lateral, flips, last = [], 0, None
     for row in c["rows"]:
         if row["mode"] != "fight" or math.hypot(*row["move"]) < 0.5:
@@ -672,13 +672,13 @@ def scenarios(folder):
     # 5. mid-fight cube grab within 40 m (and not beyond 22.8 m at half HP)
     foe = point(origin, bearing, 90)
     cube = point(origin, bearing + 180, 25)
-    spec = [hunter(5, foe, mode="hold", shoots=False, listed=True)]
-    b, c = pair(folder, "cube grab", labels, origin, fresh(spec), seconds=6.0, cubes=[cube], damage_hunters=False)
+    setup = [hunter(5, foe, mode="hold", shoots=False, listed=True)]
+    b, c = pair(folder, "cube grab", labels, origin, fresh(setup), seconds=6.0, cubes=[cube], damage_hunters=False)
     ok = c["collected"] == 1 and modes(c).get("grab", 0) > 0 and b["collected"] == 0
     check("grabs a cube 25 m away mid-fight", ok, f"collected base {b['collected']}, cand {c['collected']};"
           f" cand modes {modes(c)}")
     cube = point(origin, bearing + 180, 30)
-    b, c = pair(folder, "no grab hurt", labels, origin, fresh(spec), seconds=4.0, cubes=[cube], hp0=600.0,
+    b, c = pair(folder, "no grab hurt", labels, origin, fresh(setup), seconds=4.0, cubes=[cube], hp0=600.0,
                 damage_hunters=False)
     early = [row["mode"] for row in c["rows"] if math.dist(row["pos"], cube) > 22.8 + 1.2]
     grab_at = [round(math.dist(row["pos"], cube), 1) for row in c["rows"] if row["mode"] == "grab"]
@@ -689,8 +689,8 @@ def scenarios(folder):
 
     # 6. finish mode closes to 20 m
     foe = point(origin, bearing, 60)
-    spec = [hunter(5, foe, mode="hold", shoots=False, listed=True, hp=420)]
-    b, c = pair(folder, "finish", labels, origin, fresh(spec), seconds=10.0, damage_hunters=False)
+    setup = [hunter(5, foe, mode="hold", shoots=False, listed=True, hp=420)]
+    b, c = pair(folder, "finish", labels, origin, fresh(setup), seconds=10.0, damage_hunters=False)
     closest = lambda r: min(row["dist"][0] for row in r["rows"])
     tail = lambda r: mean(row["dist"][0] for row in r["rows"] if row["t"] >= T0 + 7)
     ok = closest(c) <= 26 and tail(c) <= 30
@@ -699,9 +699,9 @@ def scenarios(folder):
 
     # 7. LoseRule pulse: two mechs listed while we are at 50% HP, the second leaves at t0+1.0
     o7, ms, cb = cover_spot()
-    spec = [hunter(5, ms[0], mode="hold", shoots=False, listed=True),
+    setup = [hunter(5, ms[0], mode="hold", shoots=False, listed=True),
             hunter(6, ms[1], mode="hold", shoots=False, listed=True, aim_off=math.pi / 2, leave_at=T0 + 1.0)]
-    b, c = pair(folder, "lose pulse", labels, o7, fresh(spec), seconds=4.0, hp0=700.0, damage_hunters=False)
+    b, c = pair(folder, "lose pulse", labels, o7, fresh(setup), seconds=4.0, hp0=700.0, damage_hunters=False)
     retreating = [row["t"] for row in c["rows"] if row["mode"] in ("cover", "cornered", "flee")]
     fighting = [row["t"] for row in c["rows"] if row["mode"] == "fight"]
     last_losing = T0 + 0.9
@@ -722,12 +722,12 @@ def scenarios(folder):
                 ("late (next radius 60)", {}, dict(next_radius=60.0), None),
                 ("late (alive 3)", {}, {}, 3))
     for vname, target_change, zone_change, alive in variants:
-        spec = fresh(three)
-        spec[0].update(target_change)
+        setup = fresh(three)
+        setup[0].update(target_change)
         zone = dict(center=list(o7), radius=400.0, next_center=list(o7), next_radius=250.0, shrink_start=1000.0,
                     shrink_end=1050.0, dps=20)
         zone.update(zone_change)
-        b, c = pair(folder, vname, labels, o7, spec, seconds=2.0, hp0=700.0, damage_hunters=False, zone=zone,
+        b, c = pair(folder, vname, labels, o7, setup, seconds=2.0, hp0=700.0, damage_hunters=False, zone=zone,
                     alive=alive)
         m = modes(c)
         ok = m.get("fight", 0) == len(c["rows"]) and not any(k in m for k in ("cover", "cornered", "flee"))
@@ -739,9 +739,9 @@ def scenarios(folder):
     check("three mechs at 50% HP without finishing or late retreat (control)", ok, f"cand modes {m}")
 
     # 8. cover search near a building: two stationary mechs, our HP 50%
-    spec = [hunter(5, ms[0], mode="hold", shoots=False, listed=True),
+    setup = [hunter(5, ms[0], mode="hold", shoots=False, listed=True),
             hunter(6, ms[1], mode="hold", shoots=False, listed=True, aim_off=math.pi / 2)]
-    b, c = pair(folder, "cover search", labels, o7, fresh(spec), seconds=8.0, hp0=700.0, damage_hunters=False)
+    b, c = pair(folder, "cover search", labels, o7, fresh(setup), seconds=8.0, hp0=700.0, damage_hunters=False)
     end_c, end_b = c["end"], b["end"]
     hid_c = all(hidden_from(end_c, m) for m in ms)
     hid_b = all(hidden_from(end_b, m) for m in ms)
@@ -758,9 +758,9 @@ def scenarios(folder):
     reloading = dict(ammo=0, reload=2.0)
     for name, charging, off, want in (("charging at us", True, 0.0, True), ("not charging", False, 0.0, False),
                                       ("charging 0.3 rad off us", True, 0.3, False)):
-        spec = [hunter(5, foe, mode="hold", shoots=False, listed=True, charging=charging, aim_off=off,
+        setup = [hunter(5, foe, mode="hold", shoots=False, listed=True, charging=charging, aim_off=off,
                        weapons=["gun", "laser"])]
-        b, c = pair(folder, name, labels, origin, spec, seconds=0.1, move_us=False, damage_hunters=False,
+        b, c = pair(folder, name, labels, origin, setup, seconds=0.1, move_us=False, damage_hunters=False,
                     gun_state=reloading)
         row = c["rows"][0]
         bx, by = foe[0] - origin[0], foe[1] - origin[1]
@@ -823,8 +823,8 @@ def fights(folder, spots, seconds=60.0):
                       [hunter(5, s0, mode="hunt", standoff=60.0), hunter(6, s1, mode="hunt", standoff=70.0)]))
         cases.append((f"spot {n + 1}: 1 lightning hunter", origin,
                       [hunter(5, s0, weapon="lightning", mode="hunt", standoff=15.0, weapons=["gun", "lightning"])]))
-    for k, (name, origin, spec) in enumerate(cases):
-        b, c = pair(folder, name, [], origin, fresh(spec), seconds=seconds, seed=300 + k)
+    for k, (name, origin, setup) in enumerate(cases):
+        b, c = pair(folder, name, [], origin, fresh(setup), seconds=seconds, seed=300 + k)
         fk = lambda r: "-" if not r["kill_times"] else f"{r['kill_times'][0]:.1f}"
         dd = lambda r: "-" if r["died"] is None else f"{r['died']:.1f}"
         print(f"{name:44}{b['taken']:>7} | {c['taken']:<6}{b['kills']:>4} | {c['kills']:<3}{fk(b):>7} | {fk(c):<6}"

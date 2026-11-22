@@ -86,3 +86,7 @@ Built on mortar-dodge (`1645c22`, official 3.00). The v8 bullet dodge steps asid
 ## farm-power
 
 Built on dodge-tuned (`dd9b731`, official 3.10). In the first 180 s, with nobody around, the bot shoots passive drones and crates within 150 m and walks to cubes within 120 m, so it is stronger when the hunters come (`farm.py`, `targeting.py`). Run `py tools/farm_trial.py`.
+
+## squad-move
+
+Built on farm-power (`8064167`, official 3.25). In practice mode (from 20 s, while every death is one of our kills) the bot chooses where to stand in a fight: a 17-point scorer keeps the range its weapons like, a line of fire when a shot is ready, and out of sight of the other hunters, with a random strafe. It retreats to cover in 1.5 s pulses only when outnumbered and hurt, and sidesteps aimed laser charges (`squad.py`). Outside practice mode it behaves exactly as farm-power. Run `py tools/squad_move_trial.py`.
