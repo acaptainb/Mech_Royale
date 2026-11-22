@@ -24,8 +24,9 @@ Practice seeds are fixed for the whole event and the bot is deterministic. A ver
 | combo B: combo A + v12 | `combo-b` | `32259f0dc1c7edf7b5241f18c62fc2632749564c` | `f0a59c7` | 2.58 | -0.02 (-0.05 vs 2.63) |
 | duel-strafe | `duel-strafe` | `2b8e620b618581f267189f12ca46d12b5be28588` | `3b290b0` (2.63) | 2.46 (submission row SHA still to be matched to `2b8e620`) | -0.17 |
 | duel-weave | `duel-weave` | not a candidate: failed its pre-submission gate | `3b290b0` (2.63) | not submitted | n/a |
-| no-mortar | `no-mortar` | `df1be152ba1bee40a368979ccb01eef1b7f9b347` | `3b290b0` (2.63) | pending | pending |
-| lead-shots | `lead-shots` | this commit (tag `lead-shots-candidate`) | `3b290b0` (2.63) | pending | pending |
+| no-mortar | `no-mortar` | `df1be152ba1bee40a368979ccb01eef1b7f9b347` | `3b290b0` (2.63) | 2.58 | -0.05 |
+| lead-shots | `lead-shots` | `4d8a32d3c453d3efb430baddb4bd141678417d77` (tag `lead-shots-candidate`) | `3b290b0` (2.63) | **2.90** | +0.27 |
+| reload-lull | `reload-lull` | this commit (tag `reload-lull-candidate`) | `4d8a32d` (2.90) | pending | pending |
 
 ## Log
 
@@ -43,8 +44,9 @@ Practice seeds are fixed for the whole event and the bot is deterministic. A ver
 | combos A and B | `3b290b0` | `f0a59c7`, `32259f0` | v10 + v11, then v12, add to v8 + v7 | v10, v11 and v12 as on their own branches | each trial reproduced its standalone result | 2.60 and 2.58 | revert: both below 2.63, so v10 or v11 fired in practice and cost placements, and v12 cost more |
 | duel-strafe | `3b290b0` | this commit (tag `duel-strafe-candidate`) | walking sideways to the only, clearly visible opponent during ordinary zone movement helps survive the exchange | eligible on 115 of 300 recording decisions; the move changed on all 115 | hit rate under a leading shooter -17% and -11%, but routes stall while the opponent stays in view (see below) | 2.46 (-0.17) | revert: it fired at about 150 m, mostly against a laser user (hitscan, not dodgeable by walking), and replaced progress toward the zone |
 | duel-weave | `3b290b0` | not a candidate | angling the waypoint 20 degrees, alternating sides, in a clear duel keeps progress and cuts hits | eligible on 115 of 300 recording decisions; the move changed on all 115 | 16 held-out routes: 16/16 finished, but 570 hits vs 554 for 2.63 and safety 0.8 s later | not submitted | gate not passed: more hits than 2.63 |
-| lead-shots | `3b290b0` | this commit (tag `lead-shots-candidate`) | aiming the gun where a moving opponent will be when the bullet arrives lands more hits, so we kill more of the house bots that hunt us before we die | every decision with a moving opponent: aim led on 169 of 300 recording decisions | hits 56 to 109 of 130 shots (43% to 84%) in a closed-loop gunfight; never fewer; laser still released onto a moving target; only the aim changes | pending | pending your score |
-| no-mortar | `3b290b0` | `df1be15` (tag `no-mortar-candidate`) | never carrying a mortar helps: we cannot aim it, and holding one makes every laser hit on us cook off for +60% | whenever v5 would detour for or walk over a mortar (a third of floor weapons); 0 on the recording (no mortar within 70 m) | never carries a mortar in any layout; takes a laser instead when one is near; control identical | pending | pending your score |
+| lead-shots | `3b290b0` | `4d8a32d` (tag `lead-shots-candidate`) | aiming the gun where a moving opponent will be when the bullet arrives lands more hits, so we kill more of the house bots that hunt us before we die | every decision with a moving opponent: aim led on 169 of 300 recording decisions | hits 56 to 109 of 130 shots (43% to 84%) in a closed-loop gunfight; never fewer; laser still released onto a moving target; only the aim changes | **2.90 (+0.27)** | **keep: best score; parent of reload-lull** |
+| no-mortar | `3b290b0` | `df1be15` (tag `no-mortar-candidate`) | never carrying a mortar helps: we cannot aim it, and holding one makes every laser hit on us cook off for +60% | whenever v5 would detour for or walk over a mortar (a third of floor weapons); 0 on the recording (no mortar within 70 m) | never carries a mortar in any layout; takes a laser instead when one is near; control identical | 2.58 (-0.05) | revert |
+| reload-lull | `4d8a32d` | this commit (tag `reload-lull-candidate`) | reloading the gun while v6 holds fire (opponent behind cover, out of range, passive and unhittable, or none) with fewer than 8 rounds left means the next exchange starts on a full magazine | reload sent on 54 of 300 recording decisions, 2 lulls (opponent behind cover with 5 or 2 rounds left) | cover-break gunfight: 6 to 12 hits in the 4 s after the opponent reappears, visible-but-empty time 2.45 to 1.55 s; continuous fight and full-magazine lull identical; only the reload command changes | pending | pending your score |
 
 ## v6: selective engagement
 
@@ -236,6 +238,29 @@ Evidence (`py tools/lead_trial.py`: a closed-loop gunfight against `3b290b0`, bo
 - **Recording:** the aim is led on all 169 decisions with an opponent listed, and no command other than aim differs. The first led decision is at t=4.9, 140 m away: yaw +0.850 against +0.807.
 - **Narrowed checks:** the laser trial's recording control now compares fire commands, and the engagement held-out rule R3 also accepts a lead bearing, computed independently in the trial.
 - **Other checks:** the dodge trial, combo check, objective checks, route, pickup and target trials, the probe and `verify.py` all pass.
+
+## reload-lull (on `4d8a32d`, the 2.90 commit)
+
+**Why:** lead-shots made the gun the thing that wins exchanges, but the magazine is 12 rounds and an empty one costs 2.4 s. The inherited bot only reloads early when no mech is listed and 5 or fewer rounds remain. On the recording the opponent goes behind cover twice while we hold 5 and then 2 rounds, and v6 holds fire for those 54 decisions without topping up, so the fight resumes on a near-empty magazine.
+
+**The change (one rule, `bot.py`):**
+
+- When v6's reason is `hold: behind cover`, `hold: out of range`, `hold: passive, shots would miss` or `no opponent`, it is not firing, nothing else asked for a reload this decision, and a gun with no reload in progress has fewer than `LULL_AMMO = 8` rounds, send `reload`.
+- **Never** while the gun fires or already reloads. Only the `reload` command changes; aim, fire, movement and pickups are untouched. Counter: `Bot.lull_reloads`. Bot name `zone-runner-reload-lull`.
+
+Evidence (`py tools/reload_trial.py`: a closed-loop gunfight against `4d8a32d`, both as real bot processes, the same spread draws per case; we stand at `(-417, -326)` and the opponent walks a 100 m arc at 11.7 m/s, aiming at us, passing behind a building; a hit counts only while the line of fire is clear):
+
+| Case | Hits in the 4 s after it reappears (base / cand) | Visible while our gun is empty or reloading | All hits | Reloads asked |
+| --- | --- | --- | --- | --- |
+| cover break mid-fight (open 2.2 s, hidden 3.4 s) | 6 / 12 | 2.45 s / 1.55 s | 15 / 20 | 0 / 1 |
+| continuous fight in the open, no lull (control) | identical | identical | 21 / 21 | 0 / 0 |
+| hidden from the start, full magazine during the lull (control) | identical | identical | 13 / 13 | 0 / 0 |
+
+- **Trace (cover break):** both builds enter cover with 3 rounds. The baseline comes back into view at t=5.65 s with 3 rounds, empties them and spends 2.4 s reloading in the open; the candidate reloads behind the building and comes back with 12.
+- **Recording:** the rule sends `reload` on 54 of 300 decisions, in 2 lulls (t=19.8-24.0 with 5 rounds, t=25.0-26.0 with 2 rounds), every one `hold: behind cover`. The recording does not react (its ammo never refills), so a real match would see one 2.4 s reload per lull. No other command differs.
+- **Cost:** a lull reload can be in progress when an opponent turns to fight; with 7 or fewer rounds left the gun would have needed the reload within 2 s of firing anyway.
+- **Narrowed checks:** the engagement trial ignores `reload` only on decisions where this rule fired (54 on the recording), and the laser/lead trial lets the candidate add a reload the baseline did not send. Dropping a reload, or any other command changing, still fails both.
+- **Other checks:** the lead trial against `4d8a32d` is identical (109 / 109 hits, aim differs on 0 of 300 recording decisions), against `3b290b0` still 56 / 109; entrypoint trial against `4588e6b`, dodge trial, combo check, engagement trial (both held-out seeds), objective checks, route, pickup and target trials, the probe and `verify.py` all pass.
 
 ## Next experiment: laser trigger discipline (#3)
 

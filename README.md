@@ -74,3 +74,7 @@ This branch is V8 (`4588e6b`, official 2.50) with V7's laser release (`f69d39c`,
 ## lead-shots
 
 Built on the 2.63 commit (`3b290b0`). The gun aims where a moving opponent will be when the bullet arrives; a fully charged laser is still aimed straight at the body. Run `py tools/lead_trial.py` for a closed-loop gunfight against the exported baseline.
+
+## reload-lull
+
+Built on the lead-shots commit (`4d8a32d`, official 2.90). While v6 holds fire (opponent behind cover, out of range, passive and unhittable, or none listed) and the gun has fewer than 8 rounds and is not reloading, the bot sends `reload`, so the next exchange starts on a full magazine. Nothing but the reload command changes. Run `py tools/reload_trial.py` for a closed-loop gunfight in which the opponent passes behind a building, against the exported baseline.
