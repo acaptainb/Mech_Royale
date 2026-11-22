@@ -59,6 +59,14 @@ py tools/engagement_trial.py --heldout  # randomized encounters checked against 
 py tools/engagement_probe.py            # the running bot (or --docker: the match container) uses v6
 ```
 
+## Version 7 laser release
+
+V7 changes one behaviour on the 2.08 baseline (`1a0ca39`). A fully charged laser is released on the decision its beam would hit the chosen opponent, where V6 held it until the game fired it on its own. `py tools/entrypoint_trial.py` runs the exported baseline and this tree as real bot processes from identical starting conditions.
+
 ## Version 8 bullet dodge
 
 V8 changes one behaviour on the 2.08 baseline (`1a0ca39`). When a visible bullet is on course to hit us, the mech takes one brief sideways step (`dodge.py`). It skips the step when the step is blocked, would leave the zone, cannot clear the bullet in time, or would delay an urgent zone return, and it dodges at most once every 2 s. `py tools/dodge_trial.py` compares the exported baseline and this tree as real bot processes. `tools/harness.py` holds the shared process and baseline-export helpers.
+
+## Combination: V8 + V7
+
+This branch is V8 (`4588e6b`, official 2.50) with V7's laser release (`f69d39c`, official 2.19) added unchanged. Both changes scored above their shared 2.08 parent on their own. The dodge only sets move and boost, and the laser release only sets the laser slot's trigger, so the two never write the same command.

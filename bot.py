@@ -12,7 +12,7 @@ from targeting import Engagement
 
 
 class Bot(FirstRun):
-    name = "zone-runner-v8"
+    name = "zone-runner-v8+v7"
 
     def __init__(self, hello):
         super().__init__(hello)
@@ -92,6 +92,11 @@ class Bot(FirstRun):
             for slot, weapon in enumerate(me["weapons"][:2]):
                 if weapon and weapon.get("kind") == "laser" and weapon.get("charge", 0) > 0:
                     fire[slot] = True
+        # v7: a full charge with the beam on the chosen opponent is released now instead of
+        # being held until it fires on its own. The other slot's command is left as it is.
+        for slot, weapon in enumerate(me["weapons"][:2]):
+            if weapon and weapon.get("kind") == "laser" and self.engagement.release_laser(obs, weapon):
+                fire[slot] = False
         action["fire"] = fire
         return action
 

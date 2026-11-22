@@ -100,6 +100,7 @@ class Engagement:
         self.radius = mech.get("radius", 2.5)
         self.height = mech.get("height", 9)
         self.size_per_cube = config.get("cubes", {}).get("size_per_cube", 0.05)
+        self.laser = config.get("weapons", {}).get("laser", {})
         self.selector = StableTarget()
         self.attackers = {}   # id -> (time of last damage, bearing it came from or None)
         self.threats = {}     # id -> time it last pointed a weapon at us
@@ -239,8 +240,39 @@ class Engagement:
             fire, reason = True, "open fire: shots land"
         else:
             fire, reason = False, "hold: passive, shots would miss"
-        self.decision = dict(target=target, aim=aim, fire=fire, reason=reason)
+        scale = 1.0 if other.get("kind") == "npc" else 1 + self.size_per_cube * other.get("cubes", 0)
+        radius = 1.8 if other.get("kind") == "npc" else self.radius * scale
+        half_height = (self.npc_height if other.get("kind") == "npc" else self.height * scale) / 2
+        self.decision = dict(target=target, aim=aim, fire=fire, reason=reason, distance=distance,
+                             clear=fact["clear"], centre=self.centre(other),
+                             radius=radius, half_height=half_height)
         return self.decision
+
+    def release_laser(self, obs, weapon):
+        """v7: let go of a fully charged laser on this decision when the beam would hit the
+        chosen opponent: it is within laser range, the line is clear, and our actual torso aim
+        (obs self.aim, not the commanded one) points inside its body."""
+        decision = self.decision
+        if decision.get("target") is None or not decision.get("clear"):
+            return False
+        stats = weapon.get("stats") or {}
+        charge_time = stats.get("charge", self.laser.get("charge", 0.75))
+        if weapon.get("charge", 0) < charge_time - 1e-6:
+            return False
+        if decision["distance"] > stats.get("range", self.laser.get("range", 280)):
+            return False
+        me = obs["self"]
+        pos = me["pos"]
+        aim = me.get("aim") or []
+        if len(aim) < 2:
+            return False
+        muzzle_z = pos[2] + (me.get("stats") or {}).get("muzzle_height", 7)
+        cx, cy, cz = decision["centre"]
+        flat = max(math.dist((cx, cy), pos[:2]), 1e-6)
+        yaw_error = abs((aim[0] - math.atan2(cy - pos[1], cx - pos[0]) + math.pi) % math.tau - math.pi)
+        pitch_error = abs(aim[1] - math.atan2(cz - muzzle_z, flat))
+        return (yaw_error <= math.atan2(decision["radius"], flat)
+                and pitch_error <= math.atan2(decision["half_height"], flat))
 
 
 class SwitchCounter:
