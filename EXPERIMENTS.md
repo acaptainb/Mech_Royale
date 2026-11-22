@@ -25,7 +25,8 @@ Practice seeds are fixed for the whole event and the bot is deterministic. A ver
 | duel-strafe | `duel-strafe` | `2b8e620b618581f267189f12ca46d12b5be28588` | `3b290b0` (2.63) | 2.46 (submission row SHA still to be matched to `2b8e620`) | -0.17 |
 | duel-weave | `duel-weave` | not a candidate: failed its pre-submission gate | `3b290b0` (2.63) | not submitted | n/a |
 | no-mortar | `no-mortar` | `df1be152ba1bee40a368979ccb01eef1b7f9b347` | `3b290b0` (2.63) | pending | pending |
-| lead-shots | `lead-shots` | this commit (tag `lead-shots-candidate`) | `3b290b0` (2.63) | pending | pending |
+| lead-shots | `lead-shots` | `4d8a32d3c453d3efb430baddb4bd141678417d77` | `3b290b0` (2.63) | **2.90** | +0.27 |
+| weakest-first | `weakest-first` | this commit (tag `weakest-first-candidate`) | `4d8a32d` (2.90) | pending | pending |
 
 ## Log
 
@@ -236,6 +237,22 @@ Evidence (`py tools/lead_trial.py`: a closed-loop gunfight against `3b290b0`, bo
 - **Recording:** the aim is led on all 169 decisions with an opponent listed, and no command other than aim differs. The first led decision is at t=4.9, 140 m away: yaw +0.850 against +0.807.
 - **Narrowed checks:** the laser trial's recording control now compares fire commands, and the engagement held-out rule R3 also accepts a lead bearing, computed independently in the trial.
 - **Other checks:** the dodge trial, combo check, objective checks, route, pickup and target trials, the probe and `verify.py` all pass.
+
+## weakest-first (on `4d8a32d`, the 2.90 commit)
+
+One change to opponent choice in `targeting.Engagement.decide`. A shootable candidate (clear line, within reach) ranks up to `WEAK_BONUS_M` = 40 m closer in proportion to its missing HP; `hp` and `max_hp` are listed because `vision.show_enemy_hp` is on. The term is far smaller than the 1,000 m tier gap, so a fighting mech still outranks a passive one. StableTarget hysteresis, the lead aim, the fire rules and movement are unchanged. The aim is to finish wounded opponents first: the house bots only hunt us, so each kill before we die is about one placement point.
+
+Evidence (`py tools/weakest_trial.py`, against `4d8a32d`, both as real bot processes):
+
+| Case | Baseline faces | weakest-first faces |
+| --- | --- | --- |
+| two attackers, 60 m at full HP and 64 m at 25% HP | the nearer, healthy one | the wounded one |
+| weak passive mech at 40 m beside a healthy attacker | the attacker | the attacker (tier wins) |
+| equal HP, both attacking | | identical |
+| weak mech behind cover, healthy one in the open | | identical (the term only applies to shootable opponents) |
+| closed-loop duel, full-HP mech 60 m and 350-HP mech 66 m, both aiming at us, 3 seeds | no kill within 15 s | first kill at 2.0 s every seed |
+
+Activation on the recording: 0, because only one mech is ever listed, and 0 of 300 decisions differ. The engagement held-out encounters give every mech full HP, so the term is inactive there too. The term needs two or more shootable mechs with different HP; whether that happens often in practice is unknown.
 
 ## Next experiment: laser trigger discipline (#3)
 
