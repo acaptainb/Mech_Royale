@@ -55,7 +55,9 @@ def main():
     print("ready:", ready)
     # The open lawn west of the Oval: flat, with clear lines of fire east and north.
     me = [-353.0, -158.0, -5.47]
-    template["self"].update(pos=me, in_zone=True)
+    # The torso already faces the attacker (north), as it would a few decisions into the fight:
+    # from squad-fire on, practice mode (t > 20 s) fires the gun only once the torso is on target.
+    template["self"].update(pos=me, in_zone=True, aim=[math.pi / 2, 0.0])
     template["zone"].update(center=me[:2], radius=400, next_center=me[:2], next_radius=250,
                             shrink_start=200, shrink_end=250)
     passive = [me[0] + 30, me[1], me[2]]           # east, 30 m

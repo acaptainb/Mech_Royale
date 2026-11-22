@@ -9,11 +9,12 @@ from first_run import Bot as FirstRun
 from loot import PickupDetour
 from navigation import Navigator
 from objectives import Objectives
+from squad import PracticeMode, SquadFire, pick_upgrade
 from targeting import Engagement
 
 
 class Bot(FirstRun):
-    name = "zone-runner-dt-farm-power"
+    name = "zone-runner-squad-fire"
 
     def __init__(self, hello):
         super().__init__(hello)
@@ -24,9 +25,14 @@ class Bot(FirstRun):
         self.dodge = Dodge(hello, self.nav)
         self.shell_dodge = ShellDodge(hello, self.nav, self.engagement.cover)
         self.farm = CubeFarm(hello)
+        # squad-fire: practice-mode opponent choice, triggers, weapon wishes and upgrades.
+        self.practice = PracticeMode()
+        self.squad = SquadFire(hello, self.engagement)
 
     def act(self, obs):
         action = super().act(obs)
+        squad = self.practice.update(obs)
+        self.squad.observe(obs)
         me, zone = obs["self"], obs["zone"]
         x, y, z = me["pos"]
         goal = self.objectives.choose(obs, self.nav)
@@ -34,7 +40,7 @@ class Bot(FirstRun):
         waypoint = self.nav.waypoint(me["pos"], goal)
         # Zone return, supply drops and relocation keep priority: a pickup is only
         # considered while the plain zone objective is active.
-        pickup = self.loot.choose(obs, self.objectives, goal)
+        pickup = self.loot.choose(obs, self.objectives, goal, squad=squad)
         if pickup is not None:
             mode = "loot"
             waypoint = self.loot.nav.waypoint(me["pos"], pickup)
@@ -117,7 +123,33 @@ class Bot(FirstRun):
             if weapon and weapon.get("kind") == "laser" and self.engagement.release_laser(obs, weapon):
                 fire[slot] = False
         action["fire"] = fire
+        if squad:
+            self.squad_overrides(obs, action, engage, pickup)
         return action
+
+    def squad_overrides(self, obs, action, engage, pickup):
+        """squad-fire, practice mode only (after 20 s while every death is one of our kills):
+        the practice-mode choice of what to face and shoot, every trigger, the early reload, the
+        weapon take and swap, and the upgrade order replace the parent's. Movement is untouched."""
+        me = obs["self"]
+        plan = self.squad.decide(obs, engage, pickup)
+        if plan["aim"] is not None:
+            action["aim"] = plan["aim"]
+        action["fire"] = plan["fire"]
+        action.pop("reload", None)
+        if plan["reload"]:
+            action["reload"] = True
+        action.pop("take", None)
+        action.pop("drop", None)
+        take = self.loot.swap_take(me, obs.get("pickups") or ())
+        if take is not None:
+            action["take"] = take[0]
+            if take[1] is not None:
+                action["drop"] = take[1]
+        if obs.get("offer"):
+            choice = pick_upgrade(obs["offer"])
+            if choice is not None:
+                action["pick"] = choice
 
 
 if __name__ == "__main__":

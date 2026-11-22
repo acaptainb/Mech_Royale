@@ -116,6 +116,7 @@ class Engagement:
         self.led = 0          # lead-shots: decisions whose aim was led, for local reports
         self.drone_hunt = 0   # farm-power: decisions spent shooting a passive drone
         self.crate_shots = 0  # farm-power: decisions spent shooting at a crate
+        self.lines = {}       # squad-fire: id -> clear line to its centre, this decision only
 
     def observe(self, obs):
         now = obs["t"]
@@ -194,6 +195,7 @@ class Engagement:
         weapons = me_state.get("weapons") or []
         reach = self.reach(weapons)
         scores, facts = {}, {}
+        self.lines = {}
         # farm-power: in the first FARM_S of the match, with no game mech in sight and no mech
         # hitting us, passive drones in range become targets; each kill drops 2 cubes (+4% HP
         # and damage each, and upgrade offers at 1, 3, 6 and 10 cubes).
@@ -208,7 +210,7 @@ class Engagement:
             hunt = kind == "npc" and key not in self.attackers
             if hunt and not (hunting and distance <= self.HUNT_RANGE_M):
                 continue  # leave passive drones alone
-            clear = self.cover.clear(muzzle, self.centre(other))
+            clear = self.lines[key] = self.cover.clear(muzzle, self.centre(other))
             if hunt and not clear:
                 continue
             attacker = key in self.attackers

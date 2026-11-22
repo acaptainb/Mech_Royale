@@ -1,4 +1,8 @@
-"""Early-loot objective: one short, stable detour to a ground weapon while slot 1 is empty."""
+"""Early-loot objective: one short, stable detour to a ground weapon while slot 1 is empty.
+
+squad-fire (practice mode, `choose(..., squad=True)`): the detour also runs to swap slot 1 for a
+better weapon (laser over lightning, never a mortar), reaches lasers within 240 m and other
+weapons within 150 m, and ranks them by value per metre. `swap_take` is the matching take rule."""
 import math
 import sys
 from array import array
@@ -21,6 +25,14 @@ class PickupDetour:
     # recovery, so a detour must end early enough for ordinary movement to free a jammed mech.
     ZONE_MARGIN_S = 8.0
     UNSEEN_S = 5.0          # seconds a hidden pickup is trusted before it is set aside
+    # squad-fire: weapon wishes in practice mode. A kind is wanted when it outranks slot 1;
+    # a mortar is never wanted, and a held kind never is.
+    RANK = {"laser": 4, "lightning": 3, "mortar": 1}
+    WANTED = ("laser", "lightning")
+    SQUAD_LASER_M = 240.0   # how far a laser is sought
+    SQUAD_OTHER_M = 150.0   # how far any other wanted weapon is sought
+    TAKE_FLAT_M = 3.7       # take reach: pickup radius 4 less a margin
+    TAKE_HEIGHT_M = 3.6
 
     def __init__(self, hello):
         config = hello["config"]
@@ -34,6 +46,7 @@ class PickupDetour:
         if sys.byteorder == "big":
             self.heights.byteswap()
         self.target = None      # id, pos, at, since, seen, initial, best, closest, best_at
+        self.squad = False      # squad-fire: practice mode on this decision
         self.pending = None     # id and decision count of a route search in progress
         self.skip = {}          # pickup id -> match time until which it is ignored
         self.stand = {}         # pickup id -> stand point, or None when off the ground map
@@ -97,9 +110,82 @@ class PickupDetour:
 
     # --- rules --------------------------------------------------------------------------
 
+    def slot1_rank(self, me):
+        held = me["weapons"][1]
+        return self.RANK.get(held.get("kind"), 0) if held else 0
+
+    def wanted(self, me, kind):
+        """squad-fire: this kind outranks slot 1 and is not held already."""
+        held = {weapon["kind"] for weapon in me["weapons"] if weapon}
+        return kind in self.WANTED and kind not in held and self.RANK[kind] > self.slot1_rank(me)
+
+    def seeking(self, me):
+        """A detour may run: slot 1 is empty, or (practice mode) holds less than a laser."""
+        if me["weapons"][1] is None:
+            return True
+        return self.squad and self.slot1_rank(me) < self.RANK["laser"]
+
+    def reach_for(self, kind):
+        """squad-fire: walking limit for a pickup of this kind."""
+        return self.SQUAD_LASER_M if kind == "laser" else self.SQUAD_OTHER_M
+
+    @staticmethod
+    def value(me, kind):
+        """squad-fire: worth of a pickup; a laser is worth at least 150."""
+        worth = 130.0 if me["weapons"][1] is None else 60.0
+        return max(worth, 150.0) if kind == "laser" else worth
+
+    def squad_candidates(self, obs):
+        """Wanted ground pickups within their seek range, best value per metre first:
+        (distance, id, pickup, at)."""
+        me = obs["self"]
+        pos = me["pos"][:2]
+        found = []
+        for pickup in obs["pickups"]:
+            if not self.wanted(me, pickup["kind"]):
+                continue
+            distance = math.dist(pos, pickup["pos"][:2])
+            if distance > self.reach_for(pickup["kind"]):
+                continue
+            at = self.stand_point(pickup)
+            if at is not None:
+                utility = self.value(me, pickup["kind"]) / (distance + 18.0)
+                found.append((-utility, distance, pickup["id"], pickup, at))
+        return [item[1:] for item in sorted(found, key=lambda item: item[:3])]
+
+    def swap_take(self, me, pickups):
+        """squad-fire take rule: (pickup id, slot to drop or None) for the best wanted visible
+        pickup within reach, or None. Nothing is taken while the slot-1 laser is charging."""
+        held = me["weapons"][1]
+        if held and held.get("kind") == "laser" and (held.get("charge") or 0) > 0:
+            return None
+        pos = me["pos"]
+        best = None
+        for pickup in pickups:
+            kind = pickup["kind"]
+            if kind == "gun":
+                if me["weapons"][0] is not None:
+                    continue
+                rank = 5
+            elif self.wanted(me, kind):
+                rank = self.RANK[kind]
+            else:
+                continue
+            flat = math.dist(pos[:2], pickup["pos"][:2])
+            if flat > self.TAKE_FLAT_M or abs(pickup["pos"][2] - pos[2]) > self.TAKE_HEIGHT_M:
+                continue
+            if best is None or (-rank, flat, pickup["id"]) < best[0]:
+                best = ((-rank, flat, pickup["id"]), pickup["id"])
+        if best is None:
+            return None
+        full = all(weapon is not None for weapon in me["weapons"][:2])
+        return best[1], (1 if full else None)
+
     def candidates(self, obs):
         """Compatible ground pickups in range while slot 1 is empty: (distance, id, pickup, at)."""
         me = obs["self"]
+        if self.squad:
+            return self.squad_candidates(obs)
         if me["weapons"][1] is not None:
             return []
         pos = me["pos"][:2]
@@ -159,15 +245,21 @@ class PickupDetour:
 
     # --- per-decision entry point -------------------------------------------------------
 
-    def choose(self, obs, objectives, zone_goal):
-        """Return the point to walk to for a pickup, or None to keep the zone objective."""
+    def choose(self, obs, objectives, zone_goal, squad=False):
+        """Return the point to walk to for a pickup, or None to keep the zone objective.
+        squad=True applies the practice-mode wishes and seek ranges (squad-fire)."""
         me, now = obs["self"], obs["t"]
         pos = me["pos"][:2]
-        if me["weapons"][1] is not None:
+        self.squad = squad
+        if not self.seeking(me):
             if self.target is not None:
                 self.acquired += 1
             self.target = self.pending = None
             return None
+        if squad and self.target is not None and not self.wanted(me, self.target.get("kind")):
+            # Slot 1 changed under a pursuit (we took this kind, or something better).
+            self.acquired += 1
+            self.target = self.pending = None
         blocked = self.blocker(obs, objectives)
         if blocked:
             self.pending = None
@@ -237,14 +329,19 @@ class PickupDetour:
                 if searching != key:
                     self.pending = [key, 0]
                 self.pending[1] += 1
-                if self.pending[1] >= self.ROUTE_TICKS:
+                # squad-fire: a far pickup needs more planner decisions (1000 cells each).
+                ticks = (max(self.ROUTE_TICKS, math.ceil(self.reach_for(pickup["kind"]) / 20.0))
+                         if self.squad else self.ROUTE_TICKS)
+                if self.pending[1] >= ticks:
                     self.pending = None
                     self.skip[key] = now + 10
                 return
             if searching == key:
                 self.pending = searching = None
             extra = cost + math.dist(at, zone_goal) - math.dist(pos, zone_goal)
-            if cost > self.MAX_ROUTE or extra > self.MAX_EXTRA:
+            route_limit = self.reach_for(pickup["kind"]) if self.squad else self.MAX_ROUTE
+            extra_limit = route_limit if self.squad else self.MAX_EXTRA
+            if cost > route_limit or extra > extra_limit:
                 self.skip[key] = FOREVER if cost == FOREVER else now + 10
                 continue
             if not self.zone_allows(obs, at, cost):
@@ -252,7 +349,8 @@ class PickupDetour:
                 continue
             self.pending = None
             self.target = dict(id=key, pos=pickup["pos"], at=at, since=now, seen=now,
-                               initial=cost, best=cost, closest=math.dist(pos, at), best_at=now)
+                               initial=cost, best=cost, closest=math.dist(pos, at), best_at=now,
+                               kind=pickup["kind"])
             if key not in self.pursued:
                 self.pursued.append(key)
             return
