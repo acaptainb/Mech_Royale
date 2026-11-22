@@ -205,7 +205,10 @@ def check(scenario, base, cand):
     """Expectations for the v7 laser release."""
     name = scenario["name"]
     if not scenario["activates"]:
-        return all(a["action"] == b["action"] for a, b in zip(base, cand)), "identical actions on every decision"
+        # This trial is about the laser trigger; later versions may move differently.
+        same = all(a["action"].get("fire") == b["action"].get("fire") and a["action"].get("aim") == b["action"].get("aim")
+                   for a, b in zip(base, cand))
+        return same, "identical fire and aim on every decision"
     if name.startswith("full charge, clear"):
         ok = (base[0]["fire"] == [True, True] and cand[0]["fire"] == [True, False]
               and first_valid(cand) == 0.0)
@@ -268,11 +271,11 @@ def main():
     differing = 0
     for obs in et.STREAM:
         a, b = base_bot.act(copy.deepcopy(obs)), cand_bot.act(copy.deepcopy(obs))
-        differing += {k: v for k, v in a.items() if k != "debug"} != {k: v for k, v in b.items() if k != "debug"}
+        differing += a.get("fire") != b.get("fire") or a.get("aim") != b.get("aim")
     p99 = sorted(cand_bot.times)[int(0.99 * len(cand_bot.times))] * 1e3
     base_bot.close()
     cand_bot.close()
-    print(f"\nrecording control: {differing} of {len(et.STREAM)} decisions answered differently"
+    print(f"\nrecording control: fire or aim differs on {differing} of {len(et.STREAM)} decisions"
           f" (candidate round trip p99 {p99:.1f} ms through stdin/stdout)")
     if differing:
         failures.append("recording control")

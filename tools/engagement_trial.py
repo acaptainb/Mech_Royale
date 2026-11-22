@@ -463,6 +463,8 @@ def play(controller, frames):
         rows.append(dict(t=obs["t"], target=identify(action, obs), fire=any(raw), fire_raw=raw,
                          aim=action.get("aim"), detour=bot.loot.target is not None,
                          dodging=bool(dodge and dodge.active),
+                         # duel-strafe: a sideways walk may own the move
+                         strafing=bool(getattr(bot, "strafe", None) and bot.strafe.active),
                          rest={key: action.get(key) for key in UNCHANGED},
                          reason=engagement.decision.get("reason") if engagement else None))
     return rows
@@ -479,7 +481,7 @@ def compare(frames):
                          and all(abs(p - q) < 1e-9 for p, q in zip(a["aim"], b["aim"])))
         b["differs"] = a["target"] != b["target"] or a["fire_raw"] != b["fire_raw"] or not b["same_aim"]
         # Movement may differ only while a later version's dodge owns the move.
-        b["moved_differently"] = a["rest"] != b["rest"] and not b["dodging"]
+        b["moved_differently"] = a["rest"] != b["rest"] and not (b["dodging"] or b["strafing"])
     return old, new
 
 
@@ -521,7 +523,8 @@ def recording():
     print(f"\nrecording: {len(STREAM)} decisions, a mech listed in {len(listed)} (always the same one)")
     print(f"  fire decisions v5 {sum(r['fire'] for r in old)}  v6 {sum(r['fire'] for r in new)};"
           f"  decisions with a different fire command {diff_fire}, different aim {diff_aim},"
-          f" anything else different {moved} (dodge decisions excluded: {sum(r['dodging'] for r in new)})")
+          f" anything else different {moved} (dodge decisions excluded: {sum(r['dodging'] for r in new)},"
+          f" strafe decisions excluded: {sum(r['strafing'] for r in new)})")
     print("  v6 reasons while the mech is listed:", ", ".join(f"{k} {v}" for k, v in sorted(reasons.items())))
     bot, worst, t0 = V6(HELLO), 0.0, time.perf_counter()
     for obs in STREAM:

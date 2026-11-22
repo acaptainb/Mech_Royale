@@ -70,3 +70,7 @@ V8 changes one behaviour on the 2.08 baseline (`1a0ca39`). When a visible bullet
 ## Combination: V8 + V7
 
 This branch is V8 (`4588e6b`, official 2.50) with V7's laser release (`f69d39c`, official 2.19) added unchanged. Both changes scored above their shared 2.08 parent on their own. The dodge only sets move and boost, and the laser release only sets the laser slot's trigger, so the two never write the same command.
+
+## duel-strafe
+
+Built on the 2.63 commit (`3b290b0`). During a clear one-on-one encounter in ordinary zone movement, the mech walks sideways to its selected opponent (`strafe.py`), switching sides every 0.75-1.15 s, and runs before the v8 dodge. `py tools/strafe_trial.py` compares the exported baseline and this tree as real bot processes.
