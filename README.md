@@ -82,3 +82,7 @@ Built on lead-shots (`4d8a32d`, official 2.90). The bot steps out of the blast o
 ## dodge-tuned
 
 Built on mortar-dodge (`1645c22`, official 3.00). The v8 bullet dodge steps aside at most once per 0.5 s (was 2 s), for 0.2 s (was 0.3 s). The values come from `py tools/dodge_sweep.py`, which runs dodge settings through the dodge trial's tuning and held-out routes.
+
+## dodge-margin
+
+Built on dodge-tuned (`dd9b731`, official 3.10). The bullet dodge also answers bullets that would pass within 3 m of the body (margin 3.0 m, was 0.5 m) and may step every 0.35 s (was 0.5 s). Chosen by `py tools/dodge_sweep.py` on the dodge trial's tuning routes and confirmed on the held-out routes.

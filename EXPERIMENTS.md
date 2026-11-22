@@ -31,9 +31,11 @@ Practice seeds are fixed for the whole event and the bot is deterministic. A ver
 | laser-cover | `laser-cover` | `1961af48491445c4d10d88c767f901d163a98668` | `4d8a32d` (2.90) | 2.90 | +0.00 (probably never fired in practice) |
 | chase-wounded | `chase-wounded` | `ef880813566961c48504d37db14e2e8234a8f3ef` | `4d8a32d` (2.90) | 2.75 | -0.15 (walking toward opponents lost) |
 | mortar-arc | `mortar-arc` | `8670353ea471e3156f988b13b46c7ad01daea128` | `4d8a32d` (2.90) | 2.90 | +0.00 (probably never fired; an exact tie can also come from small changes cancelling) |
-| mortar-dodge | `mortar-dodge` | `1645c22576e99d0afe6cb9ce8ec37ad0d9bae616` | `4d8a32d` (2.90) | **3.00** (best; entered in the final) | +0.10 |
-| mortar-dodge + crossing-fire | `combo-mortar-dodge-crossing-fire` | `4f4596e12bf916fe76039a7e75652cf4036d35f4` | `1645c22` (3.00) | pending | pending |
-| dodge-tuned | `dodge-tuned` | this commit (tag `dodge-tuned-candidate`) | `1645c22` (3.00) | pending | pending |
+| mortar-dodge | `mortar-dodge` | `1645c22576e99d0afe6cb9ce8ec37ad0d9bae616` | `4d8a32d` (2.90) | 3.00 | +0.10 |
+| mortar-dodge + crossing-fire | `combo-mortar-dodge-crossing-fire` | `4f4596e12bf916fe76039a7e75652cf4036d35f4` | `1645c22` (3.00) | 3.04 | +0.04 (exactly crossing-fire's own gain) |
+| plating-first | `plating-first` | `4ec3f8a664f39b2d0922f00b21a44ff3a7336575` | `c120041` (2.94) | 2.94 | +0.00 (an offer listing both plating and armor is rare, about 1 in 25 offers) |
+| dodge-tuned | `dodge-tuned` | `dd9b7313b69aa7a9ab655d731acd3774ba4467fc` | `1645c22` (3.00) | **3.10** (best) | +0.10 |
+| dodge-margin | `dodge-margin` | this commit (tag `dodge-margin-candidate`) | `dd9b731` (3.10) | pending | pending |
 
 ## Log
 
@@ -54,7 +56,8 @@ Practice seeds are fixed for the whole event and the bot is deterministic. A ver
 | lead-shots | `3b290b0` | this commit (tag `lead-shots-candidate`) | aiming the gun where a moving opponent will be when the bullet arrives lands more hits, so we kill more of the house bots that hunt us before we die | every decision with a moving opponent: aim led on 169 of 300 recording decisions | hits 56 to 109 of 130 shots (43% to 84%) in a closed-loop gunfight; never fewer; laser still released onto a moving target; only the aim changes | **2.90 (+0.27)** | **keep: best score; parent of the next candidates** |
 | no-mortar | `3b290b0` | `df1be15` (tag `no-mortar-candidate`) | never carrying a mortar helps: we cannot aim it, and holding one makes every laser hit on us cook off for +60% | whenever v5 would detour for or walk over a mortar (a third of floor weapons); 0 on the recording (no mortar within 70 m) | never carries a mortar in any layout; takes a laser instead when one is near; control identical | 2.58 (-0.05) | revert: carrying the mortar is worth more than the cook-off risk |
 | mortar-dodge | `4d8a32d` | `1645c22` (tag `mortar-dodge-candidate`) | stepping out of the blast of a visible mortar shell that would land on our route cuts the damage taken (200 direct + 160 splash per shell) | only while a mortar shell is visible and would hit our route within 2.5 s; 0 on the recording (no shell listed) | closed-loop shell damage 10,240 to 0 (tuning) and 12,040 to 360 (held-out); every route finished, 0 zone exits; 4 controls identical on every decision | **3.00 (+0.10)** | **keep: best score; parent of the dodge tuning** |
-| dodge-tuned | `1645c22` | this commit (tag `dodge-tuned-candidate`) | dodging bullets more often (one dodge per 0.5 s instead of 2 s, each 0.2 s instead of 0.3 s) cuts the hits a leading gun shooter lands | every on-course bullet outside the cooldown, as v8; on the recording 1 dodge and 1 skip inside the cooldown (v8: 1 dodge, 3 skips) | parameters chosen by `tools/dodge_sweep.py` on the 12 tuning routes and confirmed on the 16 held-out routes: 369 vs 404 hits (tuning), 517 vs 554 (held-out); hits per second of route 2.69 vs 3.03 and 2.90 vs 3.25; arrival +0.3 and +0.5 s; 0 zone exits, every route finished | pending | pending your score |
+| dodge-tuned | `1645c22` | `dd9b731` (tag `dodge-tuned-candidate`) | dodging bullets more often (one dodge per 0.5 s instead of 2 s, each 0.2 s instead of 0.3 s) cuts the hits a leading gun shooter lands | every on-course bullet outside the cooldown, as v8; on the recording 1 dodge and 1 skip inside the cooldown (v8: 1 dodge, 3 skips) | parameters chosen by `tools/dodge_sweep.py` on the 12 tuning routes and confirmed on the 16 held-out routes: 369 vs 404 hits (tuning), 517 vs 554 (held-out); hits per second of route 2.69 vs 3.03 and 2.90 vs 3.25; arrival +0.3 and +0.5 s; 0 zone exits, every route finished | **3.10 (+0.10)** | **keep: best score; the local dodge sweep transferred** |
+| dodge-margin | `dd9b731` | this commit (tag `dodge-margin-candidate`) | counting bullets that would pass within 3 m of our body as threats (margin 3.0 m instead of 0.5 m) and allowing a dodge every 0.35 s (was 0.5 s) cuts hits further | every bullet on course within the wider margin, outside the cooldown; on the recording 3 dodges (dodge-tuned: 1) | second sweep on dodge-tuned (margin 0.5/1.5/3.0, cooldown 0.35/0.5, energy reserve 20/5, dodging bullets it cannot clear): 357 vs 369 hits (tuning), 489 vs 517 (held-out), arrival 11.1 vs 11.4 s and 11.05 vs 11.14 s; 0 zone exits | pending | pending your score |
 
 ## v6: selective engagement
 
@@ -373,3 +376,24 @@ dodge-tuned takes the setting that lowers both total hits and the hit rate with 
 | `py tools/shell_dodge_trial.py --baseline 1645c22` | every shell episode identical to mortar-dodge (0 and 360 damage, same routes and energy): the shell dodge is unchanged. Its gun-only control differs by design (damage 1,620 to 1,440 against a 100 m gun shooter), and its shell checks expect a baseline without the shell dodge, so they report no gain |
 | `py tools/lead_trial.py --baseline 3b290b0` | led aims as before; narrowed so that move, boost and jump are not compared on the 3 recording decisions around the candidate's bullet dodges (the baseline's dodge lasts one decision longer); any other difference still fails |
 | regressions | engagement trial and `--heldout`, `entrypoint_trial --baseline 4588e6b`, combo check, objective checks (12), route (150/150), pickup and target (11) trials, engagement probe and `verify.py` pass |
+
+## dodge-margin (on `dd9b731`, dodge-tuned, official 3.10)
+
+dodge-tuned scored 3.10 (+0.10 over mortar-dodge) with parameters from the first local sweep, so the sweep's measure carries over to the official score. A second sweep on dodge-tuned (`py tools/dodge_sweep.py`, now defaulting to `dd9b731`) varied the hit margin, the cooldown, the energy reserve, and whether to dodge bullets the step cannot clear:
+
+| Setting (cooldown, margin) | Tuning: hits, hits/s, arrival | Held-out: hits, hits/s, arrival |
+| --- | --- | --- |
+| dodge-tuned (0.5 s, 0.5 m) | 369, 2.69, 11.4 s | 517, 2.90, 11.1 s |
+| 0.5 s, 3.0 m | 360, 2.72, 11.0 s | 506, 2.88, 11.0 s |
+| **0.35 s, 3.0 m (dodge-margin)** | 357, 2.68, 11.1 s | 489, 2.77, 11.05 s |
+| 0.35 s, 1.5 m | 368, 2.76, 11.1 s | not run |
+| 0.5 s, 1.5 m | 380, 2.87, 11.0 s | not run |
+| also dodging bullets the step cannot clear (0.35-1.0 s) | 393-426, 2.61-3.22, 10.9-12.5 s | not run |
+
+The energy reserve (20 vs 5) made no difference: energy never fell that low. Dodging unclearable bullets cost hits and time. dodge-margin takes the setting that is best on both sets; the gain over dodge-tuned (3% and 5% fewer hits) is smaller than dodge-tuned's over v8 (9% and 7%).
+
+| Check | Result |
+| --- | --- |
+| `py tools/dodge_trial.py` (against v6) | 9/9 scripted checks (the 8 m near miss is still ignored: the reach is 5.8 m); reactive hits 441 to 357 (tuning) and 596 to 489 (held-out), 0 zone exits, every route finished; 3 dodges on the recording |
+| `py tools/shell_dodge_trial.py --baseline 1645c22` | every shell episode identical to mortar-dodge (the shell dodge is unchanged); its gun-only control and recording differ by design (bullet dodges) |
+| regressions | engagement trial and `--heldout`, `lead_trial --baseline 3b290b0` (move, boost and jump skipped around the candidate's dodges), `entrypoint_trial --baseline 4588e6b`, combo check, objective checks (12), route (150/150), pickup and target (11) trials, engagement probe and `verify.py` pass |

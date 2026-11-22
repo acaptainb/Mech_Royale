@@ -5,11 +5,11 @@ import math
 class Dodge:
     BULLETS = ("gun", "npc")  # straight-flying bullets; mortar shells arc and splash
     HORIZON_S = 1.0           # only bullets that would arrive within this time
-    MARGIN_M = 0.5            # extra clearance around our body when judging a hit
+    MARGIN_M = 3.0            # extra clearance around our body when judging a hit (tuned from 0.5)
     STEP_M = 4.0              # sideways step that must be clear on the ground grid
     ZONE_MARGIN_M = 3.0       # the step must end this far inside the current circle
     DODGE_S = 0.2             # how long one dodge steers sideways (2 decisions; tuned from 0.3)
-    COOLDOWN_S = 0.5         # at most one dodge per this long (tuned from 2.0 by tools/dodge_sweep.py)
+    COOLDOWN_S = 0.35        # at most one dodge per this long (tuned from 2.0, then 0.5, by tools/dodge_sweep.py)
     ENERGY_RESERVE = 20.0     # boost the step only while this much energy stays in hand
 
     def __init__(self, hello, nav):

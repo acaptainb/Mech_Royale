@@ -2,7 +2,7 @@
 
     py tools/dodge_sweep.py [--base <git revision>] [--heldout] [--grid '{"COOLDOWN_S": [...], ...}']
 
-Each variant is the base revision (default: mortar-dodge 1645c22, official 3.00) with constants
+Each variant is the base revision (default: dodge-tuned dd9b731, official 3.10) with constants
 of class Dodge (not ShellDodge) replaced, run as a real bot process through tools/dodge_trial.py's
 reactive episodes: a gun shooter that leads every bullet at our current velocity, 12 tuning
 routes or, with --heldout, the 16 held-out routes. Prints hits taken, hits per second of route,
@@ -21,8 +21,8 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "tools"))
 from harness import export
 
-BASE = "1645c22576e99d0afe6cb9ce8ec37ad0d9bae616"   # mortar-dodge, official 3.00
-GRID = {"COOLDOWN_S": [0.25, 0.5, 1.0, 2.0], "DODGE_S": [0.2, 0.3]}
+BASE = "dd9b7313b69aa7a9ab655d731acd3774ba4467fc"   # dodge-tuned, official 3.10
+GRID = {"COOLDOWN_S": [0.35, 0.5], "MARGIN_M": [0.5, 1.5, 3.0]}
 
 
 def name_of(params):
