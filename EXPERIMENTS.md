@@ -27,7 +27,13 @@ Practice seeds are fixed for the whole event and the bot is deterministic. A ver
 | no-mortar | `no-mortar` | `df1be152ba1bee40a368979ccb01eef1b7f9b347` | `3b290b0` (2.63) | 2.58 | -0.05 |
 | lead-shots | `lead-shots` | `4d8a32d3c453d3efb430baddb4bd141678417d77` | `3b290b0` (2.63) | **2.90** | +0.27 |
 | lead-shots + no-mortar | `lead-no-mortar` | `23b95d79841b9b2368f72f879c158d9084f065b1` | `4d8a32d` (2.90) | not submitted (no-mortar lost) | n/a |
-| crossing-fire | `crossing-fire` | this commit (tag `crossing-fire-candidate`) | `4d8a32d` (2.90) | pending | pending |
+| crossing-fire | `crossing-fire` | `c1200411b37163ea2496aefbb861a496d2bcea12` | `4d8a32d` (2.90) | **2.94** (entered in the final) | +0.04 |
+| offense-upgrades | `offense-upgrades` | `bb0e5e0dc51f8f75356a726230ca080da66706d3` | `4d8a32d` (2.90) | 2.85 | -0.05 |
+| laser-cover | `laser-cover` | `1961af48491445c4d10d88c767f901d163a98668` | `4d8a32d` (2.90) | 2.90 | +0.00 (exactly the parent's score: most likely never fired in practice) |
+| chase-wounded | `chase-wounded` | `ef880813566961c48504d37db14e2e8234a8f3ef` | `4d8a32d` (2.90) | 2.75 | -0.15 |
+| plating-first | `plating-first` | `4ec3f8a664f39b2d0922f00b21a44ff3a7336575` | `c120041` (2.94) | pending | pending |
+| sensors-first | `sensors-first` | `71cda0dd1792272d8dcc3fbf053fc4f004502d7a` | `c120041` (2.94) | pending | pending |
+| drop-always | `drop-always` | this commit (tag `drop-always-candidate`) | `c120041` (2.94) | pending | pending |
 
 ## Log
 
@@ -47,8 +53,9 @@ Practice seeds are fixed for the whole event and the bot is deterministic. A ver
 | duel-weave | `3b290b0` | not a candidate | angling the waypoint 20 degrees, alternating sides, in a clear duel keeps progress and cuts hits | eligible on 115 of 300 recording decisions; the move changed on all 115 | 16 held-out routes: 16/16 finished, but 570 hits vs 554 for 2.63 and safety 0.8 s later | not submitted | gate not passed: more hits than 2.63 |
 | lead-shots | `3b290b0` | this commit (tag `lead-shots-candidate`) | aiming the gun where a moving opponent will be when the bullet arrives lands more hits, so we kill more of the house bots that hunt us before we die | every decision with a moving opponent: aim led on 169 of 300 recording decisions | hits 56 to 109 of 130 shots (43% to 84%) in a closed-loop gunfight; never fewer; laser still released onto a moving target; only the aim changes | **2.90 (+0.27)** | **keep: best score so far** |
 | lead-shots + no-mortar | `4d8a32d` | this commit (tag `lead-no-mortar-candidate`) | not carrying a mortar adds to leading the gun | as in no-mortar | the no-mortar trial against `4d8a32d` matches no-mortar's own result; the lead trial against `3b290b0` matches lead-shots exactly (109 of 130) | not submitted | dropped: no-mortar alone scored 2.58 |
-| crossing-fire | `4d8a32d` | this commit (tag `crossing-fire-candidate`) | now that the gun is led, firing on passive opponents that unled shots would have missed lands hits v6 gave away | 8 of 300 recording decisions (all of v6's "passive, shots would miss" holds); every passive opponent walking across our view in a match | passive crossing opponents: 0 to 9-14 hits per 6 s (80-93%); zigzagging: 60-67%; controls identical; only the fire command changes | pending | pending your score |
+| crossing-fire | `4d8a32d` | this commit (tag `crossing-fire-candidate`) | now that the gun is led, firing on passive opponents that unled shots would have missed lands hits v6 gave away | 8 of 300 recording decisions (all of v6's "passive, shots would miss" holds); every passive opponent walking across our view in a match | passive crossing opponents: 0 to 9-14 hits per 6 s (80-93%); zigzagging: 60-67%; controls identical; only the fire command changes | **2.94 (+0.04)** | **keep: best score; parent of plating-first, sensors-first and drop-always** |
 | no-mortar | `3b290b0` | `df1be15` (tag `no-mortar-candidate`) | never carrying a mortar helps: we cannot aim it, and holding one makes every laser hit on us cook off for +60% | whenever v5 would detour for or walk over a mortar (a third of floor weapons); 0 on the recording (no mortar within 70 m) | never carries a mortar in any layout; takes a laser instead when one is near; control identical | 2.58 (-0.05) | revert: the mortar is worth carrying (see below) |
+| drop-always | `c120041` | this commit (tag `drop-always-candidate`) | going for every reachable supply drop (3 cubes, full HP and energy) whatever our HP, as soon as it is called, survives longer: placement is the death order | every called drop that is safe, level, unheld, has no mech within 13 m and can be captured within 30 s; 0 on the recording (no drop listed) | drop trial: 7 drops the baseline leaves are captured (3 cubes, 1568 HP); 4 controls identical; the 10 s low-HP case is captured at the same time | pending | pending your score |
 
 ## v6: selective engagement
 
@@ -285,6 +292,46 @@ Evidence (`py tools/crossing_fire_trial.py`: the lead-shots gunfight with oppone
   - "committed" lasts 3 s after our hit.
 - **Narrowed recording checks:** the lead trial ignores fire, and the laser trial ignores this both-slots opening fire.
 - **Other checks:** the laser trial against v8, the engagement held-out seeds, the dodge trial, combo check, objective checks, route, pickup and target trials, the probe and `verify.py` all pass.
+
+
+## Results: crossing-fire 2.94, offense-upgrades 2.85, laser-cover 2.90, chase-wounded 2.75
+
+- **crossing-fire (`c120041`): 2.94, +0.04 over lead-shots.** Firing on passive opponents once the aim is led is a small gain. It is the new best and the parent of the next round.
+- **offense-upgrades (`bb0e5e0`): 2.85, -0.05.** Taking gun and weapon upgrades before armor and plating loses: the defensive order stays.
+- **laser-cover (`1961af4`): 2.90, +0.00.** Exactly the parent's score. With fixed seeds and a deterministic bot that means the step behind cover almost certainly never fired in the 48 matches.
+- **chase-wounded (`ef88081`): 2.75, -0.15.** Walking toward a wounded opponent loses, like every earlier change that moved us toward the fight.
+
+Placement is the order of deaths, and the house bots never fight each other, so the next round tests positioning and survival on `c120041`.
+
+## drop-always (on `c120041`, the 2.94 commit)
+
+Each supply drop gives 3 cubes (+4% max HP and damage each), full HP and full energy to the mech that stands alone in its 8 m ring for 4 s. Drops are called at 70, 140 and 210 s, are listed from the call, and land 25 s later inside the circle the zone is closing to. Since v4 the bot only went for one below 80% HP when the capture could finish within 10 s. The change, in `objectives.py`:
+
+- **No HP gate:** any HP qualifies.
+- **Window:** the capture must finish within `DROP_WINDOW_S` = 30 s from now (was 10 s), so the bot walks there during the fall and waits in the ring.
+- **Unchanged filters:** both circles contain the drop with 3 m to spare, height within 4 m, no other holder, no mech within the ring + 5 m, reachable on the grid. Zone return still comes first, and a drop still outranks relocation and pickups as before.
+- **Counters:** `Objectives.drop_decisions` (decisions in drop mode) and `Objectives.captures` (drops we were holding that were then taken).
+
+Evidence (`py tools/drop_trial.py`: a closed loop where the mech goes where each bot steers it on the navigation grid, the drop falls and is captured by standing alone in its ring for 4 s; crossing-fire exported from `c120041` against this tree, both as real bot processes, 40 s per case):
+
+| Case | Captured at s (base / cand) | Cubes | HP after | Check |
+| --- | --- | --- | --- | --- |
+| called now, 60 m, HP 100% | - / 28.9 | 0 / 3 | - / 1568 | activates |
+| called now, 100 m, HP 100% | - / 28.9 | 0 / 3 | - / 1568 | activates |
+| called now, 150 m, HP 100% | - / 28.9 | 0 / 3 | - / 1568 | activates |
+| called now, 60 m, HP 90% | - / 28.9 | 0 / 3 | - / 1568 | activates |
+| called now, 150 m, HP 90% | - / 28.9 | 0 / 3 | - / 1568 | activates |
+| landed, 100 m, HP 100% | - / 11.9 | 0 / 3 | - / 1568 | activates |
+| called now, 150 m, HP 70% (too far for 10 s) | - / 28.9 | 0 / 3 | - / 1568 | activates |
+| called now, 60 m, HP 70% | 28.9 / 28.9 | 3 / 3 | 1568 / 1568 | measurement: same capture; the baseline leaves once the capture fits in 10 s, the candidate at once and waits in the ring |
+| landed, 30 m, HP 70%; a mech on the ring; drop outside the next circle; urgent zone return | identical | identical | identical | identical (controls) |
+
+- **Trace** (called now, 100 m, HP 100%): crossing-fire stands at the zone centre for all 40 s. The candidate walks straight to the drop (6.4 m from its centre at 8 s), waits 17 s for it to land, banks the 4 s capture and leaves with 3 cubes and 1568 HP at 28.9 s.
+- **Counters:** an in-process copy fed the same observations answers identically on every decision; it counts 289 drop decisions and 1 capture per called-drop case, 0 in the controls.
+- **Recording:** no drop is listed on any of the 300 decisions, so 0 answers differ.
+- **Updated objective checks:** two kit-era expectations encoded the old gate ("HP 990 means zone" and "a drop landing in 20 s means zone"). They now expect drop mode, and three boundary cases were added (HP 1000 goes, a drop landing in 25 s goes, one landing in 27 s, finishing in 31 s, does not). The baseline fails the updated file, the candidate passes all 15.
+- **Other checks:** engagement trial and `--heldout`, crossing-fire trial, lead trial against `3b290b0`, entrypoint trial against `4588e6b`, dodge trial, combo check, route (150/150), pickup and target trials, the probe and `verify.py` all pass.
+- **Possible cost:** waiting up to 25 s in the ring of a drop every mech can see may draw the house squad; the drop's full heal and 3 cubes are what this measures against that.
 
 ## Next experiment: laser trigger discipline (#3)
 
