@@ -9,11 +9,12 @@ from first_run import Bot as FirstRun
 from loot import PickupDetour
 from navigation import Navigator
 from objectives import Objectives
+from squad import SquadMove
 from targeting import Engagement
 
 
 class Bot(FirstRun):
-    name = "zone-runner-dt-farm-power"
+    name = "zone-runner-squad-move"
 
     def __init__(self, hello):
         super().__init__(hello)
@@ -24,6 +25,7 @@ class Bot(FirstRun):
         self.dodge = Dodge(hello, self.nav)
         self.shell_dodge = ShellDodge(hello, self.nav, self.engagement.cover)
         self.farm = CubeFarm(hello)
+        self.squad = SquadMove(hello, self.engagement.cover, self.engagement.centre)
 
     def act(self, obs):
         action = super().act(obs)
@@ -69,6 +71,16 @@ class Bot(FirstRun):
         # v8: one brief sideways step when a visible bullet is on course to hit us,
         # never while the zone return is urgent.
         urgent = mode == "return" or late or not me["in_zone"]
+        # v6: opponent choice and the decision to shoot replace the inherited nearest-mech
+        # rule. Movement, pickups and how the weapons are triggered are as in v5.
+        # farm-power: in the first 180 s with nobody to fight, the engagement also shoots passive
+        # drones and crates within 150 m (targeting.py); crates not during a pickup detour, which
+        # keeps facing its pickup.
+        engage = self.engagement.decide(obs, crates=pickup is None)
+        # squad-move: in practice mode (from 20 s, while every death is one of our kills), fight
+        # movement, short retreats to cover and a laser sidestep (squad.py); never during an
+        # urgent zone return, and the bullet and shell dodges below keep the last word.
+        self.squad.steer(obs, action, engage, urgent)
         self.dodge.steer(obs, action, urgent=urgent)
         # mortar-dodge: step out of the blast of a visible mortar shell that would land on
         # our route; it has the last word on movement, and never acts on an urgent return.
@@ -89,12 +101,6 @@ class Bot(FirstRun):
             for weapon in me["weapons"]:
                 if weapon and weapon["kind"] == "gun" and weapon.get("ammo",12) <= 5:
                     action["reload"] = True
-        # v6: opponent choice and the decision to shoot replace the inherited nearest-mech
-        # rule. Movement, pickups and how the weapons are triggered are as in v5.
-        # farm-power: in the first 180 s with nobody to fight, the engagement also shoots passive
-        # drones and crates within 150 m (targeting.py); crates not during a pickup detour, which
-        # keeps facing its pickup.
-        engage = self.engagement.decide(obs, crates=pickup is None)
         # During a pickup detour v5 faces the pickup to keep it in view; only a listed
         # opponent overrides that, never the turn toward an unseen attacker.
         if engage["aim"] is not None and not (pickup is not None and engage["target"] is None):
