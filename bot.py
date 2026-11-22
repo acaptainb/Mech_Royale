@@ -5,6 +5,7 @@ import mechfight as mf
 from cover import Cover
 from dodge import Dodge
 from first_run import Bot as FirstRun
+from kill_cubes import KillCubeDetour
 from loot import PickupDetour
 from navigation import Navigator
 from objectives import Objectives
@@ -12,7 +13,7 @@ from targeting import Engagement
 
 
 class Bot(FirstRun):
-    name = "zone-runner-v8+v7"
+    name = "zone-runner-v7+8+10+11"
 
     def __init__(self, hello):
         super().__init__(hello)
@@ -21,6 +22,20 @@ class Bot(FirstRun):
         self.loot = PickupDetour(hello)
         self.engagement = Engagement(hello, Cover())
         self.dodge = Dodge(hello, self.nav)
+        self.kill_cubes = KillCubeDetour(hello)
+
+    def nearest_cube(self, obs, reach):
+        """The existing cube choice: the nearest visible cube within `reach` metres and 4 m of
+        height, inside the next circle with a 4 m margin, on a clear segment."""
+        me, zone = obs["self"], obs["zone"]
+        x, y, z = me["pos"]
+        for cube in sorted(obs["cubes"], key=lambda item: math.dist(item["pos"], me["pos"])):
+            at = cube["pos"]
+            if (abs(at[2]-z) <= 4 and math.dist(at[:2], (x,y)) <= reach
+                    and math.dist(at[:2], zone["next_center"]) + 4 < zone["next_radius"]
+                    and self.nav.clear_segment(me["pos"], at)):
+                return cube
+        return None
 
     def act(self, obs):
         action = super().act(obs)
@@ -39,15 +54,14 @@ class Bot(FirstRun):
                     and not any(other["kind"] == "mech" for other in obs["mechs"])):
                 # Face the pickup so it stays inside the vision wedge.
                 action["aim"] = [math.atan2(pickup[1]-y, pickup[0]-x), 0.0]
-        if mode == "zone" and me["in_zone"] and not obs["mechs"]:
-            nearby = sorted(obs["cubes"], key=lambda item: math.dist(item["pos"], me["pos"]))
-            for cube in nearby:
-                at = cube["pos"]
-                if (abs(at[2]-z) <= 4 and math.dist(at[:2], (x,y)) <= 16
-                        and math.dist(at[:2], zone["next_center"]) + 4 < zone["next_radius"]
-                        and self.nav.clear_segment(me["pos"], at)):
-                    waypoint = at[:2]
-                    break
+        # v11: a confirmed kill opens one short window in which the usual cube choice may
+        # reach farther and run while other, non-threatening mechs are listed.
+        reach = self.kill_cubes.window(obs, self.objectives.mode, self.engagement)
+        if mode == "zone" and me["in_zone"] and (not obs["mechs"] or reach is not None):
+            cube = self.nearest_cube(obs, reach or 16)
+            if cube is not None:
+                waypoint = cube["pos"][:2]
+            self.kill_cubes.chose(obs, cube, reach)
         dx, dy = waypoint[0]-x, waypoint[1]-y
         length = math.hypot(dx, dy)
         recovering = obs["t"] < self.detour_until

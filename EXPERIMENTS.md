@@ -16,7 +16,11 @@ Practice seeds are fixed for the whole event and the bot is deterministic. A ver
 | v7 | `v7-laser-release` | `f69d39c2c32f92e533568ce27854cf5efd0e04ca` | `1a0ca39` | 2.19 | +0.11 |
 | v8 | `v8-bullet-dodge` | `4588e6b826e3ea923ab10697160e5c7658a64179` | `1a0ca39` | **2.50** (entered in the final) | +0.42 |
 | v9 | `v9-return-recovery` | `e287d238ed0cdf196c7e7a18595e9b293afd3360` | `1a0ca39` | 2.08 | +0.00 (the recovery never fired in practice) |
-| v8 + v7 | `combo-v8-v7` | this commit (tag `combo-v8-v7-candidate`) | `4588e6b` (v8) | pending | pending |
+| v8 + v7 | `combo-v8-v7` | `3b290b0b87bee98c418a74546671c82dd232c2d0` | `4588e6b` (v8) | **2.63** | +0.13 |
+| v10 | `v10-pickup-tiebreak` | `7c3605fdcc0d7bf0c3c813258b3cb746093830b9` | `1a0ca39` | pending | pending |
+| v11 | `v11-kill-cube-detour` | `63b62ff5c20eec473719e2e87061d07a0a834380` | `1a0ca39` | pending | pending |
+| v12 | `v12-hold-near-cover` | `3bc1f4734b8a2c7aecda3b89a6f62f74d712cf46` | `1a0ca39` | pending | pending |
+| combo A: v8 + v7 + v10 + v11 | `combo-a` | this commit (tag `combo-a-candidate`) | `3b290b0` (v8 + v7) | pending | pending |
 
 ## Log
 
@@ -30,7 +34,11 @@ Practice seeds are fixed for the whole event and the bot is deterministic. A ver
 | v7 | `1a0ca39` | `f69d39c` (tag `v7-candidate`) | releasing a full laser charge the moment the beam is on the chosen opponent improves placement | 4 of 7 entrypoint scenarios; 0 on the recording (no laser held) | first beam on target 0.0-0.8 s vs 1.9-2.7 s; half-speed charging roughly halved; controls identical | 2.19 (+0.11) | keep: combined with v8 |
 | v8 | `1a0ca39` | `4588e6b` (tag `v8-candidate`) | one brief sideways step away from a visible bullet on course to hit us cuts hits taken | 1 dodge on the recording (9 bullets on course: 5 too close to clear, 3 inside the 2 s cooldown) | 9/9 scripted checks; hits -8% (tuning) and -7% (held-out) in the reactive trial, 0 zone exits, every route finished | **2.50 (+0.42)** | **keep: best score; parent of the combination** |
 | v9 | `1a0ca39` | `e287d23` (tag `v9-candidate`) | one cooled-down recovery attempt when the zone return stops gaining ground gets a jammed mech back to safety | 0 on the recording and every control; 1-2 attempts per stuck trial episode | stuck episodes reach safety in 5-12 s where the baseline stays out 30 s | 2.08 (+0.00) | neutral: the rule never fired in the fixed practice matches; harmless, not combined |
-| v8 + v7 | `4588e6b` | this commit (tag `combo-v8-v7-candidate`) | the two changes that scored above 2.08 on their own add up | the dodge as in v8 (1 on the recording); the laser release as in v7 (0 on the recording) | moves exactly as v8 and fires exactly as v7 on every checked decision; recording identical to v8 | pending | pending your score |
+| v8 + v7 | `4588e6b` | this commit (tag `combo-v8-v7-candidate`) | the two changes that scored above 2.08 on their own add up | the dodge as in v8 (1 on the recording); the laser release as in v7 (0 on the recording) | moves exactly as v8 and fires exactly as v7 on every checked decision; recording identical to v8 | **2.63 (+0.13 over v8)** | **keep: best score; parent of combo A** |
+| v10 | `1a0ca39` | `7c3605f` (tag `v10-candidate`) | on a near tie between two eligible pickups, preferring the one with a clear onward line to the next circle saves time | 1 crafted layout; 3 of 150 random two-pickup layouts (2%); 0 in 110 pickup-trial episodes; 0 on the recording | courtyard vs open: reaches safety 1.3 s sooner; faster pickup and shared doorway identical | pending | rarely fires; likely reproduces its parent's score |
+| v11 | `1a0ca39` | `63b62ff` (tag `v11-candidate`) | one short cube detour after a confirmed kill turns kills into HP | 3 of 7 crafted episodes; 0 on the recording (it has no kill events) | collects 3 cubes (HP 1568 vs 1400 at the next encounter) for a 3-5 s later arrival inside the zone; cancels on the decision a threat appears | pending | fires only after our kills |
+| v12 | `1a0ca39` | `3bc1f47` (tag `v12-candidate`) | holding still beside cover while comfortably safe and quiet cuts exposure | held in 11 of 20 random starts on each of two seeds; 0 on the recording | walks 22-28% less, 0 late arrivals, releases on the same decision anything changes | pending | the one new rule likely to fire in practice; effect uncertain |
+| combo A | `3b290b0` | this commit (tag `combo-a-candidate`) | v10 and v11 add to v8 + v7 without harm | as in v10 and v11 | each trial against `3b290b0` reproduces its standalone result; laser, dodge and interaction checks unchanged | pending | pending your score |
 
 ## v6: selective engagement
 
@@ -95,6 +103,29 @@ Evidence (all as real bot processes):
 | `py tools/entrypoint_trial.py --baseline 4588e6b` (laser scenarios against v8) | every row matches v7's run against its own parent; the recording is identical to v8 (0 of 300 decisions differ) |
 | `py tools/dodge_trial.py` (against v6) | identical to v8's own run: 9/9 scripted checks, hits 441 to 404 (tuning) and 596 to 554 (held-out), 0 zone exits, 1 dodge on the recording |
 | `py tools/combo_check.py` (against the exported v7 and v8) | with a full laser and a bullet on course at once, the combination steps sideways and boosts like v8 and sends `[true, false]` like v7; each change alone also matches its parent |
+
+## Combo A: v8 + v7 + v10 + v11 (on `3b290b0`, the 2.63 commit)
+
+V10's commit (`7c3605f`) and V11's (`63b62ff`) applied on top of v8 + v7.
+
+- **Conflicts:** the bot's name, the Dockerfile and `.dockerignore` lines (both `dodge.py` and `kill_cubes.py` ship now), and the docs.
+- **Rules and the commands they own:**
+  - the pickup tie-break owns only which pickup is chosen;
+  - the cube detour owns only which cube becomes the waypoint;
+  - the dodge owns move and boost;
+  - the laser release owns the laser trigger.
+
+Evidence (all as real bot processes):
+
+| Check | Result |
+| --- | --- |
+| `py tools/pickup_tiebreak_trial.py --baseline 3b290b0` | identical to v10 against its own parent: courtyard vs open taken open, safety 12.2 s vs 13.5 s; 2% activation on random layouts; 0 on the recording |
+| `py tools/kill_cube_trial.py --baseline 3b290b0` | identical to v11 against its own parent: 3 cubes, HP 1568 vs 1400 at the next encounter, cancel on the threat's first decision, 0 zone exits |
+| `py tools/entrypoint_trial.py --baseline 4588e6b` | laser rows as in v7; recording identical to v8 |
+| `py tools/dodge_trial.py` | identical to v8 (441 to 404 and 596 to 554 hits, 0 zone exits) |
+| `py tools/combo_check.py` | moves as v8 and fires as v7 in all three cases |
+
+V10 and V11 rarely activate: twice in a combined 260 crafted and random cases, and never on the recording. Combo A will most likely score exactly 2.63 unless our bot gets kills or meets near-tied pickups in practice.
 
 ## Next experiment: laser trigger discipline (#3)
 

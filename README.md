@@ -70,3 +70,7 @@ V8 changes one behaviour on the 2.08 baseline (`1a0ca39`). When a visible bullet
 ## Combination: V8 + V7
 
 This branch is V8 (`4588e6b`, official 2.50) with V7's laser release (`f69d39c`, official 2.19) added unchanged. Both changes scored above their shared 2.08 parent on their own. The dodge only sets move and boost, and the laser release only sets the laser slot's trigger, so the two never write the same command.
+
+## Combo A: V8 + V7 + V10 + V11
+
+The 2.63 build (`3b290b0`) plus V10's pickup tie-break (`7c3605f`) and V11's post-kill cube detour (`63b62ff`), each applied unchanged. Run `py tools/pickup_tiebreak_trial.py --baseline 3b290b0` and `py tools/kill_cube_trial.py --baseline 3b290b0` to compare against the 2.63 parent.
