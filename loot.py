@@ -21,6 +21,8 @@ class PickupDetour:
     # recovery, so a detour must end early enough for ordinary movement to free a jammed mech.
     ZONE_MARGIN_S = 8.0
     UNSEEN_S = 5.0          # seconds a hidden pickup is trusted before it is set aside
+    TIE_M = 8.0             # v10: route costs this close (or within TIE_FRAC) count as a tie
+    TIE_FRAC = 0.15
 
     def __init__(self, hello):
         config = hello["config"]
@@ -43,6 +45,8 @@ class PickupDetour:
         self.abandoned = {}     # reason -> count
         self.pursuit_ticks = 0
         self.acquired = 0
+        self.ties = 0           # v10: choices where a tied alternative was weighed
+        self.tiebreaks = 0      # v10: choices the onward-route tie-break changed
 
     # --- geometry -----------------------------------------------------------------------
 
@@ -251,9 +255,41 @@ class PickupDetour:
                 self.skip[key] = now + 20
                 continue
             self.pending = None
+            key, pickup, at, cost = self.tie_break(obs, pos, zone_goal, options, key, pickup, at, cost)
             self.target = dict(id=key, pos=pickup["pos"], at=at, since=now, seen=now,
                                initial=cost, best=cost, closest=math.dist(pos, at), best_at=now)
             if key not in self.pursued:
                 self.pursued.append(key)
             return
         self.pending = None
+
+    def tie_break(self, obs, pos, zone_goal, options, key, pickup, at, cost):
+        """v10: among pickups with similar travel time, prefer one whose onward route to the
+        next circle is clear. Every compatible weapon kind counts as equal value (as in v5),
+        so similar value means both are eligible. Alternatives are costed only when their
+        direct route is clear (cost = straight distance), so no second route search runs.
+        Returns the (key, pickup, at, cost) to pursue: the original choice unless a tie is
+        broken in favour of a clear onward route."""
+        nav = self.nav
+        if nav.clear_segment(at, zone_goal):
+            return key, pickup, at, cost  # the choice already has a clear onward route
+        margin = max(self.TIE_M, self.TIE_FRAC * cost)
+        weighed = False
+        for distance, other, item, spot in options:
+            if other == key or distance > cost + margin or self.skip.get(other, -1) > obs["t"]:
+                continue
+            if self.pressure(obs, pos, spot) or not nav.clear_segment(pos, spot):
+                continue
+            alternative = math.dist(pos[:2], spot)
+            extra = alternative + math.dist(spot, zone_goal) - math.dist(pos, zone_goal)
+            if (abs(alternative - cost) > margin or alternative > self.MAX_ROUTE
+                    or extra > self.MAX_EXTRA or not self.zone_allows(obs, spot, alternative)):
+                continue
+            weighed = True
+            if nav.clear_segment(spot, zone_goal):
+                self.ties += 1
+                self.tiebreaks += 1
+                return other, item, spot, alternative
+        if weighed:
+            self.ties += 1
+        return key, pickup, at, cost

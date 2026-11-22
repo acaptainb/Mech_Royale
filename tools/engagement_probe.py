@@ -1,4 +1,5 @@
-"""Prove the bot that actually runs (natively or in the match container) uses v6 engagement.
+"""Prove the bot that actually runs (natively or in the match container) is this checkout's bot,
+with v6 engagement (kept by every later version).
 
     python tools/engagement_probe.py              # runs: python -u bot.py
     python tools/engagement_probe.py --docker     # runs the image verify.py --docker built
@@ -12,13 +13,15 @@ import gzip
 import json
 import math
 import queue
+import re
 import subprocess
 import sys
 import threading
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-EXPECTED_NAME = "zone-runner-v6"
+# The name this checkout's bot.py declares, so the container is proven to run this version.
+EXPECTED_NAME = re.search(r'^\s+name = "([^"]+)"', (ROOT / "bot.py").read_text(), re.M).group(1)
 
 
 def main():

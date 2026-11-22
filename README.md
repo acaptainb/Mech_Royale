@@ -58,3 +58,7 @@ py tools/engagement_trial.py            # v5 and v6 on identical observations, j
 py tools/engagement_trial.py --heldout  # randomized encounters checked against rules with exact map geometry
 py tools/engagement_probe.py            # the running bot (or --docker: the match container) uses v6
 ```
+
+## Version 10 pickup tie-break
+
+V10 changes one behaviour on the 2.08 baseline (`1a0ca39`): pickup selection. Given two eligible weapon pickups with similar travel time (within 8 m or 15%), the mech prefers the one whose onward line to the next circle is clear (`PickupDetour.tie_break` in `loot.py`). `py tools/pickup_tiebreak_trial.py` compares the exported baseline and this tree as real bot processes.
