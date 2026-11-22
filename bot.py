@@ -12,7 +12,7 @@ from targeting import Engagement
 
 
 class Bot(FirstRun):
-    name = "zone-runner-dodge-tuned"
+    name = "zone-runner-dt-loot-power"
 
     def __init__(self, hello):
         super().__init__(hello)
@@ -22,6 +22,7 @@ class Bot(FirstRun):
         self.engagement = Engagement(hello, Cover())
         self.dodge = Dodge(hello, self.nav)
         self.shell_dodge = ShellDodge(hello, self.nav, self.engagement.cover)
+        self.lightning_gated = 0  # lightning-gate: decisions the lightning trigger was let go
 
     def act(self, obs):
         action = super().act(obs)
@@ -76,8 +77,15 @@ class Bot(FirstRun):
         if me["weapons"][1] is None:
             eligible = [p for p in obs["pickups"] if p["kind"] != "gun"
                         and abs(p["pos"][2]-z) <= 4 and math.dist(p["pos"][:2],(x,y)) <= self.reach]
+            # loot-power: laser, then lightning, then mortar; on the way to a pickup of a kind,
+            # take nothing ranked below it.
+            target = self.loot.target
+            if target is not None and target.get("kind") in self.loot.PREFER:
+                rank = self.loot.PREFER[target["kind"]]
+                eligible = [p for p in eligible if self.loot.PREFER.get(p["kind"], 9) <= rank]
             if eligible:
-                action["take"] = min(eligible,key=lambda p: math.dist(p["pos"],me["pos"]))["id"]
+                action["take"] = min(eligible,key=lambda p: (self.loot.PREFER.get(p["kind"], 9),
+                                                            math.dist(p["pos"],me["pos"])))["id"]
         if not obs["mechs"]:
             for weapon in me["weapons"]:
                 if weapon and weapon["kind"] == "gun" and weapon.get("ammo",12) <= 5:
@@ -102,8 +110,29 @@ class Bot(FirstRun):
         for slot, weapon in enumerate(me["weapons"][:2]):
             if weapon and weapon.get("kind") == "laser" and self.engagement.release_laser(obs, weapon):
                 fire[slot] = False
+        # lightning-gate: an arc reaches only `range` m inside `cone_deg` of the aim, and every
+        # shot spends energy, hit or miss. Hold the lightning trigger only when the chosen
+        # opponent is within reach, inside the cone of the aim sent, with a clear line.
+        for slot, weapon in enumerate(me["weapons"][:2]):
+            if (weapon and weapon.get("kind") == "lightning" and fire[slot]
+                    and not self.lightning_reaches(engage, me, action.get("aim"), weapon)):
+                fire[slot] = False
+                self.lightning_gated += 1
         action["fire"] = fire
         return action
+
+    @staticmethod
+    def lightning_reaches(engage, me, aim, weapon):
+        """lightning-gate: the chosen opponent is in the lightning's range and cone of `aim`."""
+        if engage.get("target") is None or not engage.get("clear") or not aim:
+            return False
+        stats = weapon.get("stats") or {}
+        if engage["distance"] > stats.get("range", 45.0):
+            return False
+        cx, cy = engage["centre"][:2]
+        bearing = math.atan2(cy - me["pos"][1], cx - me["pos"][0])
+        off = abs((bearing - aim[0] + math.pi) % math.tau - math.pi)
+        return math.degrees(off) <= stats.get("cone_deg", 30.0)
 
 
 if __name__ == "__main__":

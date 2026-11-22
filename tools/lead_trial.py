@@ -216,11 +216,13 @@ def main():
     local = Bot(et.HELLO)
     # dodge-tuned: decisions on which the candidate's bullet dodge steers; its move, boost and
     # jump are the dodge's (tuned cooldown), not the lead's, and are not compared there.
-    dodging = set()
+    dodging, detour = set(), set()
     for i, obs in enumerate(et.STREAM):
         local.act(copy.deepcopy(obs))
         if getattr(getattr(local, "dodge", None), "active", None) is not None:
             dodging.add(i)
+        if getattr(getattr(local, "loot", None), "target", None) is not None:
+            detour.add(i)  # loot-power: the wider early detour owns move, boost, jump and take here
     # The baseline's dodge lasts 0.3 s, one decision longer than the tuned 0.2 s one.
     dodging |= {i + 1 for i in dodging}
     base_bot, cand_bot = BotProcess(folder, et.HELLO), BotProcess(ROOT, et.HELLO)
@@ -229,15 +231,17 @@ def main():
     for i, obs in enumerate(et.STREAM):
         a, c = base_bot.act(copy.deepcopy(obs)), cand_bot.act(copy.deepcopy(obs))
         aim_diff += a.get("aim") != c.get("aim")
-        skip = ("aim", "tick", "debug") + (("move", "boost", "jump") if i in dodging else ())
+        skip = (("aim", "tick", "debug") + (("move", "boost", "jump") if i in dodging else ())
+                + (("move", "boost", "jump", "take") if i in detour else ()))
         rest = lambda x: {k: v for k, v in x.items() if k not in skip}
         other_diff += rest(a) != rest(c)
-        if a.get("aim") != c.get("aim") and len(trace) < 3:
+        if a.get("aim") != c.get("aim") and obs["mechs"] and len(trace) < 3:
             trace.append((obs["t"], a["aim"], c["aim"], obs["mechs"][0]["vel"][:2], round(math.dist(obs["mechs"][0]["pos"], obs["self"]["pos"]))))
     base_bot.close()
     cand_bot.close()
     print(f"\nrecording: aim led on {getattr(local.engagement, 'led', 0)} decisions; aim differs from the baseline on"
           f" {aim_diff} of {len(et.STREAM)}; any other command differs on {other_diff}"
+          f" (also not compared: move, boost, jump and take on the {len(detour)} early-detour decisions)"
           f" (move, boost and jump not compared on the {len(dodging)} decisions around the candidate's bullet dodges)")
     for t, a, c, v, d in trace:
         print(f"  t={t:4.1f}  opponent {d} m away moving {v}: baseline aim yaw {a[0]:+.3f}, lead aim yaw {c[0]:+.3f}")

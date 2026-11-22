@@ -21,6 +21,14 @@ class PickupDetour:
     # recovery, so a detour must end early enough for ordinary movement to free a jammed mech.
     ZONE_MARGIN_S = 8.0
     UNSEEN_S = 5.0          # seconds a hidden pickup is trusted before it is set aside
+    # loot-power: while slot 1 is empty early in the match, detour farther for a weapon, and
+    # prefer the laser (315 damage, hitscan, 280 m), then lightning, then the mortar.
+    PREFER = {"laser": 0, "lightning": 1, "mortar": 2}
+    EARLY_S = 180.0         # match seconds during which the wider detour applies
+    EARLY_ROUTE = 150.0     # metres of walking to a pickup in that window (else MAX_ROUTE)
+    EARLY_LASER_ROUTE = 240.0  # metres of walking to a laser in that window
+    EARLY_EXTRA = 2.0       # in that window the detour may add this many times its route limit
+    EARLY_ROUTE_TICKS = 10  # decisions allowed for a longer route search in that window
 
     def __init__(self, hello):
         config = hello["config"]
@@ -43,6 +51,15 @@ class PickupDetour:
         self.abandoned = {}     # reason -> count
         self.pursuit_ticks = 0
         self.acquired = 0
+        self.early_detours = 0  # loot-power: detours chosen beyond MAX_ROUTE or MAX_EXTRA
+
+    def limits(self, obs, kind=None):
+        """loot-power: (route, extra, route search decisions) allowed now for a pickup of `kind`
+        (None: the widest limit, for the first range filter)."""
+        if obs["t"] < self.EARLY_S:
+            route = self.EARLY_ROUTE if kind not in (None, "laser") else self.EARLY_LASER_ROUTE
+            return route, self.EARLY_EXTRA * route, self.EARLY_ROUTE_TICKS
+        return self.MAX_ROUTE, self.MAX_EXTRA, self.ROUTE_TICKS
 
     # --- geometry -----------------------------------------------------------------------
 
@@ -107,7 +124,7 @@ class PickupDetour:
         found = []
         for pickup in obs["pickups"]:
             distance = math.dist(pos, pickup["pos"][:2])
-            if pickup["kind"] in held or distance > self.MAX_ROUTE:
+            if pickup["kind"] in held or distance > self.limits(obs, pickup["kind"])[0]:
                 continue
             at = self.stand_point(pickup)
             if at is not None:
@@ -226,8 +243,11 @@ class PickupDetour:
             return
         searching = self.pending[0] if self.pending else None
         options = [item for item in self.candidates(obs) if self.skip.get(item[1], -1) <= now]
-        # Keep evaluating the pickup whose route search is already running.
-        options.sort(key=lambda item: (item[1] != searching, item[0], item[1]))
+        route_ticks = self.limits(obs)[2]
+        # Keep evaluating the pickup whose route search is already running; then loot-power's
+        # kind order (laser, lightning, mortar), then the usual distance order.
+        options.sort(key=lambda item: (item[1] != searching, self.PREFER.get(item[2]["kind"], 9),
+                                       item[0], item[1]))
         for _, key, pickup, at in options:
             if self.pressure(obs, pos, at):
                 continue
@@ -237,21 +257,24 @@ class PickupDetour:
                 if searching != key:
                     self.pending = [key, 0]
                 self.pending[1] += 1
-                if self.pending[1] >= self.ROUTE_TICKS:
+                if self.pending[1] >= route_ticks:
                     self.pending = None
                     self.skip[key] = now + 10
                 return
             if searching == key:
                 self.pending = searching = None
             extra = cost + math.dist(at, zone_goal) - math.dist(pos, zone_goal)
-            if cost > self.MAX_ROUTE or extra > self.MAX_EXTRA:
+            route_limit, extra_limit, _ = self.limits(obs, pickup["kind"])
+            if cost > route_limit or extra > extra_limit:
                 self.skip[key] = FOREVER if cost == FOREVER else now + 10
                 continue
             if not self.zone_allows(obs, at, cost):
                 self.skip[key] = now + 20
                 continue
             self.pending = None
-            self.target = dict(id=key, pos=pickup["pos"], at=at, since=now, seen=now,
+            if cost > self.MAX_ROUTE or extra > self.MAX_EXTRA:
+                self.early_detours += 1
+            self.target = dict(id=key, kind=pickup["kind"], pos=pickup["pos"], at=at, since=now, seen=now,
                                initial=cost, best=cost, closest=math.dist(pos, at), best_at=now)
             if key not in self.pursued:
                 self.pursued.append(key)

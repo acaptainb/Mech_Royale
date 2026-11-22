@@ -82,3 +82,7 @@ Built on lead-shots (`4d8a32d`, official 2.90). The bot steps out of the blast o
 ## dodge-tuned
 
 Built on mortar-dodge (`1645c22`, official 3.00). The v8 bullet dodge steps aside at most once per 0.5 s (was 2 s), for 0.2 s (was 0.3 s). The values come from `py tools/dodge_sweep.py`, which runs dodge settings through the dodge trial's tuning and held-out routes.
+
+## loot-power
+
+Built on dodge-tuned (`dd9b731`, official 3.10). Prefers the laser, then lightning, then the mortar when picking up a second weapon; detours up to 240 m for a laser (150 m for others) while slot 1 is empty in the first 180 s; holds the lightning trigger until the target is in its range and cone. Run `py tools/loot_power_trial.py` and `py tools/lightning_trial.py`.
