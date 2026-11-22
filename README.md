@@ -82,3 +82,7 @@ Built on lead-shots (`4d8a32d`, official 2.90). The bot steps out of the blast o
 ## mortar-dodge + crossing-fire
 
 Built on mortar-dodge (`1645c22`, official 3.00) with crossing-fire's change (`c120041`, official 2.94) added unchanged: the shell dodge owns movement when a mortar shell threatens the route, and the gun also fires at a passive opponent when its aim is led. Run `py tools/combo_md_cf_check.py` to check that it moves exactly as mortar-dodge and fires exactly as crossing-fire.
+
+## dodge-rapid-on-combo
+
+Built on the 3.04 combination (`4f4596e`, mortar-dodge + crossing-fire). The rapid bullet dodge (one 0.2 s step per 0.25 s; dodge-rapid on mortar-dodge, pending) on the 3.04 combination. Run `py tools/combo_dodge_check.py`.
