@@ -12,7 +12,10 @@ from targeting import Engagement
 
 
 class Bot(FirstRun):
-    name = "zone-runner-dodge-tuned"
+    name = "zone-runner-dt-reload-lull"
+    LULL_AMMO = 8           # reload-lull: reload during a hold when fewer rounds than this remain
+    LULL_REASONS = ("hold: behind cover", "hold: out of range",
+                    "hold: passive, shots would miss", "no opponent")
 
     def __init__(self, hello):
         super().__init__(hello)
@@ -22,6 +25,7 @@ class Bot(FirstRun):
         self.engagement = Engagement(hello, Cover())
         self.dodge = Dodge(hello, self.nav)
         self.shell_dodge = ShellDodge(hello, self.nav, self.engagement.cover)
+        self.lull_reloads = 0   # reload-lull: decisions this rule asked for a reload
 
     def act(self, obs):
         action = super().act(obs)
@@ -103,6 +107,15 @@ class Bot(FirstRun):
             if weapon and weapon.get("kind") == "laser" and self.engagement.release_laser(obs, weapon):
                 fire[slot] = False
         action["fire"] = fire
+        # reload-lull: top the gun up while v6 is holding fire (target behind cover, out of
+        # range, a passive target unled shots would miss, or nobody to shoot), so a fight
+        # that resumes starts on a full magazine. Never while the gun fires or already reloads.
+        if engage["reason"] in self.LULL_REASONS and not engage["fire"] and not action.get("reload"):
+            for weapon in me["weapons"][:2]:
+                if (weapon and weapon.get("kind") == "gun" and weapon.get("reload", 0) <= 0
+                        and weapon.get("ammo", self.LULL_AMMO) < self.LULL_AMMO):
+                    action["reload"] = True
+                    self.lull_reloads += 1
         return action
 
 

@@ -224,20 +224,23 @@ def main():
     # The baseline's dodge lasts 0.3 s, one decision longer than the tuned 0.2 s one.
     dodging |= {i + 1 for i in dodging}
     base_bot, cand_bot = BotProcess(folder, et.HELLO), BotProcess(ROOT, et.HELLO)
-    aim_diff = other_diff = 0
+    aim_diff = other_diff = added_reload = 0
     trace = []
     for i, obs in enumerate(et.STREAM):
         a, c = base_bot.act(copy.deepcopy(obs)), cand_bot.act(copy.deepcopy(obs))
         aim_diff += a.get("aim") != c.get("aim")
-        skip = ("aim", "tick", "debug") + (("move", "boost", "jump") if i in dodging else ())
+        # reload-lull onward: the candidate may add a reload the baseline did not send (a
+        # reload during a hold); dropping one, or any other command changing, still fails.
+        skip = ("aim", "tick", "debug", "reload") + (("move", "boost", "jump") if i in dodging else ())
         rest = lambda x: {k: v for k, v in x.items() if k not in skip}
-        other_diff += rest(a) != rest(c)
+        other_diff += rest(a) != rest(c) or (bool(a.get("reload")) and not c.get("reload"))
+        added_reload += bool(c.get("reload")) and not a.get("reload")
         if a.get("aim") != c.get("aim") and len(trace) < 3:
             trace.append((obs["t"], a["aim"], c["aim"], obs["mechs"][0]["vel"][:2], round(math.dist(obs["mechs"][0]["pos"], obs["self"]["pos"]))))
     base_bot.close()
     cand_bot.close()
     print(f"\nrecording: aim led on {getattr(local.engagement, 'led', 0)} decisions; aim differs from the baseline on"
-          f" {aim_diff} of {len(et.STREAM)}; any other command differs on {other_diff}"
+          f" {aim_diff} of {len(et.STREAM)}; reload added on {added_reload}; any other command differs on {other_diff}"
           f" (move, boost and jump not compared on the {len(dodging)} decisions around the candidate's bullet dodges)")
     for t, a, c, v, d in trace:
         print(f"  t={t:4.1f}  opponent {d} m away moving {v}: baseline aim yaw {a[0]:+.3f}, lead aim yaw {c[0]:+.3f}")

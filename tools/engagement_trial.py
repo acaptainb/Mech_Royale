@@ -475,6 +475,7 @@ def play(controller, frames):
     bot = controller(HELLO)
     rows = []
     for obs in frames:
+        lulls = getattr(bot, "lull_reloads", 0)  # reload-lull onward: reloads asked during a hold
         action = bot.act(copy.deepcopy(obs))
         raw = list(action.get("fire") or [False, False])
         engagement = getattr(bot, "engagement", None)
@@ -482,6 +483,7 @@ def play(controller, frames):
         rows.append(dict(t=obs["t"], target=identify(action, obs), fire=any(raw), fire_raw=raw,
                          aim=action.get("aim"), detour=bot.loot.target is not None,
                          dodging=bool(dodge and dodge.active),
+                         lull=getattr(bot, "lull_reloads", 0) > lulls,
                          rest={key: action.get(key) for key in UNCHANGED},
                          reason=engagement.decision.get("reason") if engagement else None))
     return rows
@@ -497,8 +499,13 @@ def compare(frames):
         b["same_aim"] = (a["aim"] is not None and b["aim"] is not None
                          and all(abs(p - q) < 1e-9 for p, q in zip(a["aim"], b["aim"])))
         b["differs"] = a["target"] != b["target"] or a["fire_raw"] != b["fire_raw"] or not b["same_aim"]
-        # Movement may differ only while a later version's dodge owns the move.
-        b["moved_differently"] = a["rest"] != b["rest"] and not b["dodging"]
+        # Movement may differ only while a later version's dodge owns the move, and the
+        # reload command only on a decision where reload-lull asked for one during a hold.
+        rest_a, rest_b = dict(a["rest"]), dict(b["rest"])
+        if b["lull"]:
+            rest_a.pop("reload")
+            rest_b.pop("reload")
+        b["moved_differently"] = rest_a != rest_b and not b["dodging"]
     return old, new
 
 
@@ -540,7 +547,8 @@ def recording():
     print(f"\nrecording: {len(STREAM)} decisions, a mech listed in {len(listed)} (always the same one)")
     print(f"  fire decisions v5 {sum(r['fire'] for r in old)}  v6 {sum(r['fire'] for r in new)};"
           f"  decisions with a different fire command {diff_fire}, different aim {diff_aim},"
-          f" anything else different {moved} (dodge decisions excluded: {sum(r['dodging'] for r in new)})")
+          f" anything else different {moved} (dodge decisions excluded: {sum(r['dodging'] for r in new)};"
+          f" reload ignored on reload-lull decisions: {sum(r['lull'] for r in new)})")
     print("  v6 reasons while the mech is listed:", ", ".join(f"{k} {v}" for k, v in sorted(reasons.items())))
     bot, worst, t0 = V6(HELLO), 0.0, time.perf_counter()
     for obs in STREAM:
