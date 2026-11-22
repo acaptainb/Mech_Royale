@@ -25,8 +25,15 @@ Practice seeds are fixed for the whole event and the bot is deterministic. A ver
 | duel-strafe | `duel-strafe` | `2b8e620b618581f267189f12ca46d12b5be28588` | `3b290b0` (2.63) | 2.46 (submission row SHA still to be matched to `2b8e620`) | -0.17 |
 | duel-weave | `duel-weave` | not a candidate: failed its pre-submission gate | `3b290b0` (2.63) | not submitted | n/a |
 | no-mortar | `no-mortar` | `df1be152ba1bee40a368979ccb01eef1b7f9b347` | `3b290b0` (2.63) | 2.58 | -0.05 |
-| lead-shots | `lead-shots` | `4d8a32d3c453d3efb430baddb4bd141678417d77` | `3b290b0` (2.63) | **2.90** (best; parent of the next candidates) | +0.27 |
-| mortar-dodge | `mortar-dodge` | this commit (tag `mortar-dodge-candidate`) | `4d8a32d` (2.90) | pending | pending |
+| lead-shots | `lead-shots` | `4d8a32d3c453d3efb430baddb4bd141678417d77` | `3b290b0` (2.63) | 2.90 (parent of the batch candidates) | +0.27 |
+| crossing-fire | `crossing-fire` | `c1200411b37163ea2496aefbb861a496d2bcea12` | `4d8a32d` (2.90) | 2.94 | +0.04 |
+| offense-upgrades | `offense-upgrades` | `bb0e5e0dc51f8f75356a726230ca080da66706d3` | `4d8a32d` (2.90) | 2.85 | -0.05 |
+| laser-cover | `laser-cover` | `1961af48491445c4d10d88c767f901d163a98668` | `4d8a32d` (2.90) | 2.90 | +0.00 (probably never fired in practice) |
+| chase-wounded | `chase-wounded` | `ef880813566961c48504d37db14e2e8234a8f3ef` | `4d8a32d` (2.90) | 2.75 | -0.15 (walking toward opponents lost) |
+| mortar-arc | `mortar-arc` | `8670353ea471e3156f988b13b46c7ad01daea128` | `4d8a32d` (2.90) | 2.90 | +0.00 (probably never fired; an exact tie can also come from small changes cancelling) |
+| mortar-dodge | `mortar-dodge` | `1645c22576e99d0afe6cb9ce8ec37ad0d9bae616` | `4d8a32d` (2.90) | **3.00** (best; entered in the final) | +0.10 |
+| mortar-dodge + crossing-fire | `combo-mortar-dodge-crossing-fire` | `4f4596e12bf916fe76039a7e75652cf4036d35f4` | `1645c22` (3.00) | pending | pending |
+| dodge-rapid | `dodge-rapid` | this commit (tag `dodge-rapid-candidate`) | `1645c22` (3.00) | pending | pending |
 
 ## Log
 
@@ -46,7 +53,8 @@ Practice seeds are fixed for the whole event and the bot is deterministic. A ver
 | duel-weave | `3b290b0` | not a candidate | angling the waypoint 20 degrees, alternating sides, in a clear duel keeps progress and cuts hits | eligible on 115 of 300 recording decisions; the move changed on all 115 | 16 held-out routes: 16/16 finished, but 570 hits vs 554 for 2.63 and safety 0.8 s later | not submitted | gate not passed: more hits than 2.63 |
 | lead-shots | `3b290b0` | this commit (tag `lead-shots-candidate`) | aiming the gun where a moving opponent will be when the bullet arrives lands more hits, so we kill more of the house bots that hunt us before we die | every decision with a moving opponent: aim led on 169 of 300 recording decisions | hits 56 to 109 of 130 shots (43% to 84%) in a closed-loop gunfight; never fewer; laser still released onto a moving target; only the aim changes | **2.90 (+0.27)** | **keep: best score; parent of the next candidates** |
 | no-mortar | `3b290b0` | `df1be15` (tag `no-mortar-candidate`) | never carrying a mortar helps: we cannot aim it, and holding one makes every laser hit on us cook off for +60% | whenever v5 would detour for or walk over a mortar (a third of floor weapons); 0 on the recording (no mortar within 70 m) | never carries a mortar in any layout; takes a laser instead when one is near; control identical | 2.58 (-0.05) | revert: carrying the mortar is worth more than the cook-off risk |
-| mortar-dodge | `4d8a32d` | this commit (tag `mortar-dodge-candidate`) | stepping out of the blast of a visible mortar shell that would land on our route cuts the damage taken (200 direct + 160 splash per shell) | only while a mortar shell is visible and would hit our route within 2.5 s; 0 on the recording (no shell listed) | closed-loop shell damage 10,240 to 0 (tuning) and 12,040 to 360 (held-out); every route finished, 0 zone exits; 4 controls identical on every decision | pending | pending your score |
+| mortar-dodge | `4d8a32d` | `1645c22` (tag `mortar-dodge-candidate`) | stepping out of the blast of a visible mortar shell that would land on our route cuts the damage taken (200 direct + 160 splash per shell) | only while a mortar shell is visible and would hit our route within 2.5 s; 0 on the recording (no shell listed) | closed-loop shell damage 10,240 to 0 (tuning) and 12,040 to 360 (held-out); every route finished, 0 zone exits; 4 controls identical on every decision | **3.00 (+0.10)** | **keep: best score; parent of the dodge tuning** |
+| dodge-rapid | `1645c22` | this commit (tag `dodge-rapid-candidate`) | dodging bullets more often (one dodge per 0.25 s instead of 2 s, each 0.2 s instead of 0.3 s) cuts the hits a leading gun shooter lands | every on-course bullet outside the cooldown, as v8; on the recording 1 dodge more (2 dodges, 0 skips inside the cooldown) | parameters chosen by `tools/dodge_sweep.py` on the 12 tuning routes and confirmed on the 16 held-out routes: 351 vs 404 hits (tuning), 518 vs 554 (held-out); hits per second of route 2.33 vs 3.03 and 2.69 vs 3.25; arrival +1.4 s on both sets; 0 zone exits, every route finished | pending | pending your score |
 
 ## v6: selective engagement
 
@@ -338,3 +346,30 @@ v6 reproduces the v5 column exactly.
 - Zone return has no stuck recovery (v4 onward). v5's 8 s zone margin exists so an abandoned detour still leaves time for ordinary movement.
 - No match feedback or replays were available without signing in to the Buildathon site, so nothing here comes from official matches beyond the scores.
 - The recording never lists two mechs, never shows a pickup within reach, and does not react to the bot. The scripted and closed-loop trials cover those cases, but they measure decisions, not placements.
+
+## dodge-rapid (on `1645c22`, the 3.00 commit)
+
+One change to the v8 bullet dodge in `dodge.py`: `COOLDOWN_S` 0.25 (was 2.0) and `DODGE_S` 0.2 (was 0.3, so each dodge steers for 2 decisions instead of 3). Everything else, including the shell dodge, is unchanged.
+
+**Why:** the bullet dodge is the largest single gain so far (v8, +0.42). In the dodge trial a gun shooter that leads every bullet at our current velocity fires every 0.25 s; with a 2 s cooldown most of its bullets arrive while the dodge is waiting. Shorter, more frequent steps keep changing our velocity, so a leading shooter's aim is wrong more often.
+
+**How the values were chosen** (`py tools/dodge_sweep.py`, each variant a real bot process on the trial's reactive episodes): 46 settings on the 12 tuning routes (cooldown 0.25-2.0 s, dodge 0.1-0.5 s, horizon 1.0/1.5 s; the horizon made no difference), then the best 6 and the current setting on the 16 held-out routes.
+
+| Setting | Tuning: hits, hits/s, arrival | Held-out: hits, hits/s, arrival |
+| --- | --- | --- |
+| v8 (cooldown 2.0, dodge 0.3) | 404, 3.03, 11.1 s | 554, 3.25, 10.6 s |
+| cooldown 1.0, dodge 0.3 | 374, 2.67, 11.7 s | 532, 2.96, 11.2 s |
+| **cooldown 0.5, dodge 0.2 (dodge-tuned)** | 369, 2.69, 11.4 s | 517, 2.90, 11.1 s |
+| cooldown 0.35, dodge 0.2 | 370, 2.69, 11.5 s | 524, 2.90, 11.3 s |
+| **cooldown 0.25, dodge 0.2 (dodge-rapid)** | 351, 2.33, 12.5 s | 518, 2.69, 12.0 s |
+| cooldown 0.5, dodge 0.3 | 349, 1.90, 15.3 s | 526, 2.17, 15.1 s |
+| cooldown 0.25, dodge 0.3 | 407, 1.43, 23.8 s (7 routes unfinished, 3 zone exits) | not run |
+
+dodge-tuned takes the setting that lowers both total hits and the hit rate with the least delay; dodge-rapid takes the lowest hit rate under fire at about 13% more route time. Longer dodges (0.3 s and up) with short cooldowns stall the route. The shooter model is ours: house bots' aim is unknown, which only the official score can judge.
+
+| Check | Result |
+| --- | --- |
+| `py tools/dodge_trial.py` (against v6) | 9/9 scripted checks; reactive hits 441 to 351 (tuning) and 596 to 518 (held-out), 0 zone exits, every route finished |
+| `py tools/shell_dodge_trial.py --baseline 1645c22` | every shell episode identical to mortar-dodge (0 and 360 damage, same routes and energy): the shell dodge is unchanged. Its gun-only control differs by design (damage 1,620 to 1,440 against a 100 m gun shooter), and its shell checks expect a baseline without the shell dodge, so they report no gain |
+| `py tools/lead_trial.py --baseline 3b290b0` | led aims as before; narrowed so that move, boost and jump are not compared on the 6 recording decisions around the candidate's bullet dodges (the baseline's dodge lasts one decision longer; the candidate dodges once more); any other difference still fails |
+| regressions | engagement trial and `--heldout`, `entrypoint_trial --baseline 4588e6b`, combo check, objective checks (12), route (150/150), pickup and target (11) trials, engagement probe and `verify.py` pass |
