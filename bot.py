@@ -5,6 +5,7 @@ import mechfight as mf
 from cover import Cover
 from dodge import Dodge
 from first_run import Bot as FirstRun
+from weave import DuelWeave
 from loot import PickupDetour
 from navigation import Navigator
 from objectives import Objectives
@@ -12,7 +13,7 @@ from targeting import Engagement
 
 
 class Bot(FirstRun):
-    name = "zone-runner-v8+v7"
+    name = "zone-runner-duel-weave"
 
     def __init__(self, hello):
         super().__init__(hello)
@@ -21,6 +22,7 @@ class Bot(FirstRun):
         self.loot = PickupDetour(hello)
         self.engagement = Engagement(hello, Cover())
         self.dodge = Dodge(hello, self.nav)
+        self.weave = DuelWeave(hello, self.nav)
 
     def act(self, obs):
         action = super().act(obs)
@@ -48,6 +50,9 @@ class Bot(FirstRun):
                         and self.nav.clear_segment(me["pos"], at)):
                     waypoint = at[:2]
                     break
+        # v6's engagement decision, computed once here so movement can use its selected
+        # opponent; the same decision drives aiming and firing below.
+        engage = self.engagement.decide(obs)
         dx, dy = waypoint[0]-x, waypoint[1]-y
         length = math.hypot(dx, dy)
         recovering = obs["t"] < self.detour_until
@@ -58,6 +63,11 @@ class Bot(FirstRun):
         walk_time = max(0,distance_to_safe) / max(1,me["stats"]["walk_speed"])
         late = distance_to_safe > 0 and obs["t"] + walk_time + 4 > zone["shrink_start"]
         action["boost"] = (late or not me["in_zone"]) and me["energy"] > 15
+        # duel-weave: angle the waypoint direction 20 degrees, alternating sides, during a clear
+        # one-on-one duel in ordinary zone movement. Runs before the dodge, which has the last word.
+        self.weave.steer(obs, action, engage, mode=mode,
+                         urgent=mode == "return" or late or not me["in_zone"],
+                         recovering=recovering, reach=self.engagement.reach(me.get("weapons") or []))
         # v8: one brief sideways step when a visible bullet is on course to hit us,
         # never while the zone return is urgent.
         self.dodge.steer(obs, action, urgent=mode == "return" or late or not me["in_zone"])
@@ -78,8 +88,7 @@ class Bot(FirstRun):
                 if weapon and weapon["kind"] == "gun" and weapon.get("ammo",12) <= 5:
                     action["reload"] = True
         # v6: opponent choice and the decision to shoot replace the inherited nearest-mech
-        # rule. Movement, pickups and how the weapons are triggered are as in v5.
-        engage = self.engagement.decide(obs)
+        # rule (decision computed once above, before movement).
         # During a pickup detour v5 faces the pickup to keep it in view; only a listed
         # opponent overrides that, never the turn toward an unseen attacker.
         if engage["aim"] is not None and not (pickup is not None and engage["target"] is None):

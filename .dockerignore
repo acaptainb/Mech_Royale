@@ -10,6 +10,8 @@
 !loot.py
 !cover.py
 !dodge.py
+!weave.py
+!strafe.py
 !cover.i16
 !targeting.py
 !heights.i16
