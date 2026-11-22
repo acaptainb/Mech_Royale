@@ -24,8 +24,9 @@ Practice seeds are fixed for the whole event and the bot is deterministic. A ver
 | combo B: combo A + v12 | `combo-b` | `32259f0dc1c7edf7b5241f18c62fc2632749564c` | `f0a59c7` | 2.58 | -0.02 (-0.05 vs 2.63) |
 | duel-strafe | `duel-strafe` | `2b8e620b618581f267189f12ca46d12b5be28588` | `3b290b0` (2.63) | 2.46 (submission row SHA still to be matched to `2b8e620`) | -0.17 |
 | duel-weave | `duel-weave` | not a candidate: failed its pre-submission gate | `3b290b0` (2.63) | not submitted | n/a |
-| no-mortar | `no-mortar` | `df1be152ba1bee40a368979ccb01eef1b7f9b347` | `3b290b0` (2.63) | pending | pending |
-| lead-shots | `lead-shots` | this commit (tag `lead-shots-candidate`) | `3b290b0` (2.63) | pending | pending |
+| no-mortar | `no-mortar` | `df1be152ba1bee40a368979ccb01eef1b7f9b347` | `3b290b0` (2.63) | 2.58 | -0.05 |
+| lead-shots | `lead-shots` | `4d8a32d3c453d3efb430baddb4bd141678417d77` (tag `lead-shots-candidate`) | `3b290b0` (2.63) | **2.90** | +0.27 |
+| vision-scan | `vision-scan` | this commit (tag `vision-scan-candidate`) | `4d8a32d` (2.90) | pending | pending |
 
 ## Log
 
@@ -43,8 +44,9 @@ Practice seeds are fixed for the whole event and the bot is deterministic. A ver
 | combos A and B | `3b290b0` | `f0a59c7`, `32259f0` | v10 + v11, then v12, add to v8 + v7 | v10, v11 and v12 as on their own branches | each trial reproduced its standalone result | 2.60 and 2.58 | revert: both below 2.63, so v10 or v11 fired in practice and cost placements, and v12 cost more |
 | duel-strafe | `3b290b0` | this commit (tag `duel-strafe-candidate`) | walking sideways to the only, clearly visible opponent during ordinary zone movement helps survive the exchange | eligible on 115 of 300 recording decisions; the move changed on all 115 | hit rate under a leading shooter -17% and -11%, but routes stall while the opponent stays in view (see below) | 2.46 (-0.17) | revert: it fired at about 150 m, mostly against a laser user (hitscan, not dodgeable by walking), and replaced progress toward the zone |
 | duel-weave | `3b290b0` | not a candidate | angling the waypoint 20 degrees, alternating sides, in a clear duel keeps progress and cuts hits | eligible on 115 of 300 recording decisions; the move changed on all 115 | 16 held-out routes: 16/16 finished, but 570 hits vs 554 for 2.63 and safety 0.8 s later | not submitted | gate not passed: more hits than 2.63 |
-| lead-shots | `3b290b0` | this commit (tag `lead-shots-candidate`) | aiming the gun where a moving opponent will be when the bullet arrives lands more hits, so we kill more of the house bots that hunt us before we die | every decision with a moving opponent: aim led on 169 of 300 recording decisions | hits 56 to 109 of 130 shots (43% to 84%) in a closed-loop gunfight; never fewer; laser still released onto a moving target; only the aim changes | pending | pending your score |
-| no-mortar | `3b290b0` | `df1be15` (tag `no-mortar-candidate`) | never carrying a mortar helps: we cannot aim it, and holding one makes every laser hit on us cook off for +60% | whenever v5 would detour for or walk over a mortar (a third of floor weapons); 0 on the recording (no mortar within 70 m) | never carries a mortar in any layout; takes a laser instead when one is near; control identical | pending | pending your score |
+| lead-shots | `3b290b0` | `4d8a32d` (tag `lead-shots-candidate`) | aiming the gun where a moving opponent will be when the bullet arrives lands more hits, so we kill more of the house bots that hunt us before we die | every decision with a moving opponent: aim led on 169 of 300 recording decisions | hits 56 to 109 of 130 shots (43% to 84%) in a closed-loop gunfight; never fewer; laser still released onto a moving target; only the aim changes | **2.90 (+0.27)** | **keep: best score; parent of the next candidates** |
+| no-mortar | `3b290b0` | `df1be15` (tag `no-mortar-candidate`) | never carrying a mortar helps: we cannot aim it, and holding one makes every laser hit on us cook off for +60% | whenever v5 would detour for or walk over a mortar (a third of floor weapons); 0 on the recording (no mortar within 70 m) | never carries a mortar in any layout; takes a laser instead when one is near; control identical | 2.58 (-0.05) | revert: the mortar is worth carrying |
+| vision-scan | `4d8a32d` | this commit (tag `vision-scan-candidate`) | sweeping the torso aim +-60 deg around the walking aim while nothing is listed shows opponents to the side sooner (vision beyond 45 m is a 120 deg wedge around the aim), so we shoot first more often | every decision of ordinary zone movement with nothing listed and nothing to face: 91 of 300 recording decisions, aim differs on 86 | quiet opponents 60-180 m at 50-110 deg off the heading: seen in 19 vs 6 of 24 placements, hits 117 to 304; hunting opponents: seen earlier in 7, later in 8 of 24, hits 328 to 339, damage taken 19,890 to 19,958; controls identical; only the aim changes | pending | pending your score |
 
 ## v6: selective engagement
 
@@ -236,6 +238,30 @@ Evidence (`py tools/lead_trial.py`: a closed-loop gunfight against `3b290b0`, bo
 - **Recording:** the aim is led on all 169 decisions with an opponent listed, and no command other than aim differs. The first led decision is at t=4.9, 140 m away: yaw +0.850 against +0.807.
 - **Narrowed checks:** the laser trial's recording control now compares fire commands, and the engagement held-out rule R3 also accepts a lead bearing, computed independently in the trial.
 - **Other checks:** the dodge trial, combo check, objective checks, route, pickup and target trials, the probe and `verify.py` all pass.
+
+## vision-scan (on `4d8a32d`, the 2.90 commit)
+
+Beyond `near_range` (45 m) a mech sees only inside a 120 deg yaw wedge centred on its torso aim, out to 200 m. While nothing is listed the bot aims at the zone centre (the kit's rule, which v5 inherits), so an opponent more than 60 deg off that heading stays unseen until it closes to 45 m or hits us. The 15 house bots share vision and hunt us, so they often shoot first.
+
+**The change (aim only, `bot.py`):** during ordinary zone movement (objective mode `zone`, no pickup detour), with nothing listed and the engagement not setting an aim (no opponent, no turn toward an unseen attacker), the aim yaw follows a triangle wave of +-60 deg around v5's aim: centre, left, right, centre over 3 s (80 deg/s, about a third of the 4 rad/s turn rate; the period stretches if a torso ever turns slower than 1.4 rad/s, keeping the sweep at half the turn rate or less). The pitch, movement and every trigger are unchanged. The sweep yields the moment anything is listed or the engagement sets an aim, and restarts from the centre afterwards. Constants: `SCAN_HALF_DEG = 60`, `SCAN_PERIOD_S = 3.0`, `SCAN_RATE_FRAC = 0.5`. Counter: `Bot.scans`.
+
+Evidence (`py tools/vision_trial.py`: the exported `4d8a32d` and this tree as real bot processes from identical starts, 8 s walks from the open lawn, simulated vision with LOS by the cover raster and 5 s memory, the opponent aiming at us; our gun as in the lead trial):
+
+| Opponent (24 placements: 60/120/180 m, 50/70/90/110 deg, left/right) | lead-shots | vision-scan |
+| --- | --- | --- |
+| quiet: placements where it is ever seen | 6 | 19 |
+| quiet: seen earlier / later than lead-shots | | 13 / 0 |
+| quiet: our hits | 117 | 304 |
+| hunting (it shoots from t=0.5 s): seen earlier / later | | 7 / 8 |
+| hunting: our hits | 328 | 339 |
+| hunting: damage taken (from behind) | 19,890 (810) | 19,958 (878) |
+
+- **Where it helps:** an opponent 70-110 deg to the side that has not opened fire: seen 0.2-0.8 s in (left, the first half-sweep) or 1.8-2.2 s in (right) instead of never.
+- **Where it costs:** an opponent on the right that opens fire first. lead-shots turns toward the first hit from a centred torso; the candidate is often swept left at that moment, so it turns 0.1-0.3 s later and takes a few more hits from behind (rear x1.5).
+- **Controls, identical on every decision:** an opponent straight ahead (quiet and hunting), an opponent already listed from memory 90 deg off, and a pickup detour.
+- **Recording:** 91 scan decisions of 300, in 3 sweeps. 131 decisions have nothing listed; the other 40 are the 5 s turn toward an unseen attacker, which the sweep leaves alone. The aim differs on 86 decisions (the other 5 fall where the sweep passes its centre) and no other command differs.
+- **Narrowed checks:** in `tools/engagement_trial.py` a row where the sweep owns the aim counts as v5's aim when the pitch matches and the yaw is within 60 deg of v5's (it flagged "attacker killed", "unseen attacker behind us" and "mortar from unseen shooter" after the 5 s turn ends). `tools/lead_trial.py` collects its led-aim trace only from decisions with an opponent listed (it crashed on a sweep decision with none).
+- **Other checks:** the engagement trial and held-out rules, the lead trial against `3b290b0`, the entrypoint trial against `4588e6b`, the dodge trial, combo check, objective checks, route, pickup and target trials, the probe and `verify.py` all pass.
 
 ## Next experiment: laser trigger discipline (#3)
 

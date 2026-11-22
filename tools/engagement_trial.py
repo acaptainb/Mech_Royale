@@ -482,6 +482,7 @@ def play(controller, frames):
         rows.append(dict(t=obs["t"], target=identify(action, obs), fire=any(raw), fire_raw=raw,
                          aim=action.get("aim"), detour=bot.loot.target is not None,
                          dodging=bool(dodge and dodge.active),
+                         scanning=bool(getattr(bot, "scanning", False)),  # vision-scan onward
                          rest={key: action.get(key) for key in UNCHANGED},
                          reason=engagement.decision.get("reason") if engagement else None))
     return rows
@@ -496,6 +497,13 @@ def compare(frames):
     for a, b in zip(old, new):
         b["same_aim"] = (a["aim"] is not None and b["aim"] is not None
                          and all(abs(p - q) < 1e-9 for p, q in zip(a["aim"], b["aim"])))
+        # vision-scan onward: with nothing listed and nothing to face, the aim yaw sweeps
+        # around v5's aim. Such a row counts as v5's aim when the pitch is v5's and the yaw is
+        # within the sweep's half-width of v5's yaw.
+        if b["scanning"] and a["aim"] is not None and b["aim"] is not None:
+            off = abs((b["aim"][0] - a["aim"][0] + math.pi) % math.tau - math.pi)
+            b["same_aim"] = (abs(b["aim"][1] - a["aim"][1]) < 1e-9
+                             and off <= math.radians(V6.SCAN_HALF_DEG) + 1e-9)
         b["differs"] = a["target"] != b["target"] or a["fire_raw"] != b["fire_raw"] or not b["same_aim"]
         # Movement may differ only while a later version's dodge owns the move.
         b["moved_differently"] = a["rest"] != b["rest"] and not b["dodging"]
