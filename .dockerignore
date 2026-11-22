@@ -12,6 +12,8 @@
 !dodge.py
 !hide.py
 !exposure.u8
+!stealth.py
+!breaksight.py
 !cover.i16
 !targeting.py
 !heights.i16

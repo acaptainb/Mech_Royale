@@ -6,6 +6,7 @@ from cover import Cover
 from dodge import Dodge, ShellDodge
 from first_run import Bot as FirstRun
 from hide import HideSpot
+from stealth import Stealth
 from loot import PickupDetour
 from navigation import Navigator
 from objectives import Objectives
@@ -13,7 +14,7 @@ from targeting import Engagement
 
 
 class Bot(FirstRun):
-    name = "zone-runner-dt-hide-spot"
+    name = "zone-runner-dt-stealth"
 
     def __init__(self, hello):
         super().__init__(hello)
@@ -24,6 +25,7 @@ class Bot(FirstRun):
         self.dodge = Dodge(hello, self.nav)
         self.shell_dodge = ShellDodge(hello, self.nav, self.engagement.cover)
         self.hide = HideSpot(hello, self.nav)
+        self.stealth = Stealth(hello, self.nav, self.engagement.cover)
 
     def act(self, obs):
         action = super().act(obs)
@@ -31,9 +33,11 @@ class Bot(FirstRun):
         x, y, z = me["pos"]
         goal = self.objectives.choose(obs, self.nav)
         mode = self.objectives.mode
-        # hide-spot: in plain zone mode, wait at the least exposed node near the next centre
-        # instead of standing in the open on the centre itself (see hide.py).
-        spot = self.hide.choose(obs, mode)
+        # stealth: before the endgame, wait at the least exposed node near the next centre
+        # (hide.py) instead of standing in the open on the centre itself; in the endgame,
+        # walk to the centre and fight as dodge-tuned does.
+        endgame = self.stealth.endgame(obs)
+        spot = None if endgame else self.hide.choose(obs, mode)
         if spot is not None:
             goal = spot
         waypoint = self.nav.waypoint(me["pos"], goal)
@@ -74,6 +78,11 @@ class Bot(FirstRun):
         # v8: one brief sideways step when a visible bullet is on course to hit us,
         # never while the zone return is urgent.
         urgent = mode == "return" or late or not me["in_zone"]
+        # stealth: before the endgame, step out of sight of any mech we can see (unless one is
+        # attacking us). Urgent zone return wins; the dodges below keep the last word.
+        if self.stealth.steer(obs, action, urgent=urgent):
+            # A deliberate wait is not a jam: keep the inherited stuck detector from firing.
+            self.sample_pos, self.detour_until = None, 0.0
         self.dodge.steer(obs, action, urgent=urgent)
         # mortar-dodge: step out of the blast of a visible mortar shell that would land on
         # our route; it has the last word on movement, and never acts on an urgent return.
@@ -97,6 +106,10 @@ class Bot(FirstRun):
         # v6: opponent choice and the decision to shoot replace the inherited nearest-mech
         # rule. Movement, pickups and how the weapons are triggered are as in v5.
         engage = self.engagement.decide(obs)
+        # stealth: before the endgame only shoot at a mech that hit us, aims at us, that we are
+        # already fighting, or that is close; hold fire on passive mechs so gunfire does not give us away.
+        if self.stealth.hold_fire(obs, engage):
+            engage = dict(engage, fire=False, reason="stealth: hold fire")
         # During a pickup detour v5 faces the pickup to keep it in view; only a listed
         # opponent overrides that, never the turn toward an unseen attacker.
         if engage["aim"] is not None and not (pickup is not None and engage["target"] is None):

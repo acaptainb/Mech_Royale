@@ -221,6 +221,8 @@ def main():
         local.act(copy.deepcopy(obs))
         if getattr(getattr(local, "dodge", None), "active", None) is not None:
             dodging.add(i)
+        if getattr(getattr(local, "stealth", None), "active", False):
+            dodging.add(i)  # stealth: stepping out of sight owns move, boost and jump here
     # The baseline's dodge lasts 0.3 s, one decision longer than the tuned 0.2 s one.
     dodging |= {i + 1 for i in dodging}
     base_bot, cand_bot = BotProcess(folder, et.HELLO), BotProcess(ROOT, et.HELLO)
@@ -238,7 +240,7 @@ def main():
     cand_bot.close()
     print(f"\nrecording: aim led on {getattr(local.engagement, 'led', 0)} decisions; aim differs from the baseline on"
           f" {aim_diff} of {len(et.STREAM)}; any other command differs on {other_diff}"
-          f" (move, boost and jump not compared on the {len(dodging)} decisions around the candidate's bullet dodges)")
+          f" (move, boost and jump not compared on the {len(dodging)} decisions around the candidate's bullet dodges and stealth moves)")
     for t, a, c, v, d in trace:
         print(f"  t={t:4.1f}  opponent {d} m away moving {v}: baseline aim yaw {a[0]:+.3f}, lead aim yaw {c[0]:+.3f}")
     if other_diff:

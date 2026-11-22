@@ -37,6 +37,9 @@ Practice seeds are fixed for the whole event and the bot is deterministic. A ver
 | dodge-tuned | `dodge-tuned` | `dd9b7313b69aa7a9ab655d731acd3774ba4467fc` | `1645c22` (3.00) | **3.10** (best) | +0.10 |
 | dodge-tuned + mortar-dodge + crossing-fire | `dodge-tuned-on-combo` | `3ddcb13c5da09ee0bfa5b8a0228c053f4c343278` | `4f4596e` (3.04) | 2.94 | -0.10 (and -0.16 vs dodge-tuned without crossing-fire: the two did not add; crossing-fire's +0.04s look like luck) |
 | hide-spot-on-dodge-tuned | `hide-spot-on-dodge-tuned` | this commit (tag `hide-spot-on-dodge-tuned-candidate`) | `dd9b731` (3.10) | pending | pending |
+| kite-on-dodge-tuned | `kite-on-dodge-tuned` | `da522cddee7fdd5a824c3fc05bcbe60ea0af16ad` | `dd9b731` (3.10) | 3.10 | +0.00 |
+| dodge-margin | `dodge-margin` | `c5a5c7e6a2ec47fed99e4323c53450357c8d0418` | `dd9b731` (3.10) | 3.06 | -0.04 |
+| stealth | `stealth` | this commit (tag `stealth-candidate`) | `d62b1b5` (hide-spot on dodge-tuned, pending; dodge-tuned 3.10 below it) | pending | pending |
 
 ## Log
 
@@ -59,6 +62,7 @@ Practice seeds are fixed for the whole event and the bot is deterministic. A ver
 | mortar-dodge | `4d8a32d` | `1645c22` (tag `mortar-dodge-candidate`) | stepping out of the blast of a visible mortar shell that would land on our route cuts the damage taken (200 direct + 160 splash per shell) | only while a mortar shell is visible and would hit our route within 2.5 s; 0 on the recording (no shell listed) | closed-loop shell damage 10,240 to 0 (tuning) and 12,040 to 360 (held-out); every route finished, 0 zone exits; 4 controls identical on every decision | **3.00 (+0.10)** | **keep: best score; parent of the dodge tuning** |
 | dodge-tuned | `1645c22` | `dd9b731` (tag `dodge-tuned-candidate`) | dodging bullets more often (one dodge per 0.5 s instead of 2 s, each 0.2 s instead of 0.3 s) cuts the hits a leading gun shooter lands | every on-course bullet outside the cooldown, as v8; on the recording 1 dodge and 1 skip inside the cooldown (v8: 1 dodge, 3 skips) | parameters chosen by `tools/dodge_sweep.py` on the 12 tuning routes and confirmed on the 16 held-out routes: 369 vs 404 hits (tuning), 517 vs 554 (held-out); hits per second of route 2.69 vs 3.03 and 2.90 vs 3.25; arrival +0.3 and +0.5 s; 0 zone exits, every route finished | **3.10 (+0.10)** | **keep: best score; parent of the next candidates** |
 | hide-spot-on-dodge-tuned | `dd9b731` | this commit (tag `hide-spot-on-dodge-tuned-candidate`) | waiting at the least exposed walkable spot near the next zone centre instead of on the open centre (hide-spot, c08eef9) on dodge-tuned | 0 of 300 recording decisions (that centre is already sheltered); a spot is found at 185 of 300 random centres | tools/hide_trial.py against dd9b731: exposure 0.58 to 0.34 (lower in 18 of 18 zones); hunters walking at our true position: first seen 3.35 to 46.65 s, deaths 7 to 5 of 12; patrolling hunters: deaths 9 to 10 of 12 | pending | pending your score |
+| stealth | `d62b1b5` | this commit (tag `stealth-candidate`) | from live play (2nd place by staying hidden and fighting only with 3 mechs left): before the endgame, hide (hide-spot), step out of sight of any mech we see unless one is attacking us, and hold fire on passive mechs; in the endgame (4 alive or fewer, or the next circle 25 m or less) fight exactly as dodge-tuned | 32 stealth moves on the recording, 0 fire differences (every shot there is at a mech aiming at us) | tools/stealth_trial.py: holds fire on a passive mech and steps out of its sight; endgame by alive count or circle, and being attacked, identical to dodge-tuned; hunters at our true position: deaths 7 to 5 of 12, damage 11,385 to 7,178; patrolling hunters: 9 to 10 of 12 | pending | pending your score |
 
 ## v6: selective engagement
 
@@ -381,3 +385,21 @@ dodge-tuned takes the setting that lowers both total hits and the hit rate with 
 ## hide-spot-on-dodge-tuned (on `dd9b731`, dodge-tuned, official 3.10)
 
 hide-spot (`c08eef9` on crossing-fire, and `2f072e7` on the 3.04 combination) moved onto dodge-tuned without crossing-fire. `exposure.u8` is byte-identical (48,508 bytes). `py tools/hide_trial.py` (baseline dd9b731) reproduces the earlier numbers: exposure 0.58 to 0.34, hunters at our true position first see us at 46.65 s instead of 3.35 s and kill us 5 times instead of 7 in 12; patrolling hunters 10 instead of 9. Regressions pass (route 150/150, with hide-spot's own narrowings of objective, route and pickup checks).
+
+## stealth (on `d62b1b5`, hide-spot on dodge-tuned; dodge-tuned 3.10)
+
+**Why:** in live play the user finished 2nd by wandering hidden and fighting only when three mechs were left. Placement is the death order, so every house bot that dies before us is a point; the practice squad shares vision and hunts us, so being seen is what brings it.
+
+**Before the endgame** (`stealth.py`, more than 4 mechs alive and the next circle wider than 25 m):
+- the zone goal is the least exposed reachable spot near the next centre (hide-spot, `hide.py`);
+- whenever a game mech is listed and none has damaged us in the last 5 s, the bot moves to the nearest reachable point hidden by solid cover from every listed mech and recent attacker (break-sight's search) and waits there until no mech has been listed for 2 s;
+- the gun only fires at a mech that hit us, aims at us, that we are already fighting, or that is close; passive mechs are left alone so gunfire does not give us away.
+
+**In the endgame** all of that switches off: the bot walks to the centre and fights as dodge-tuned does. The bullet and shell dodges run in every phase.
+
+| Check | Result |
+| --- | --- |
+| `py tools/stealth_trial.py` (against dd9b731) | passive mech 90 m away: dodge-tuned shoots, stealth holds fire and moves to cover; the same scene with 4 alive or a 25 m circle, and a mech that just hit us, are identical to dodge-tuned; the recording: 32 stealth moves, 0 fire differences |
+| `py tools/hide_trial.py --baseline dd9b731` | exposure 0.58 to 0.34 in 18 of 18 zones; hunters walking at our true position: first seen 3.35 to 46.65 s, damage 11,385 to 7,178, deaths 7 to 5 of 12; patrolling hunters: damage 15,885 to 16,402, deaths 9 to 10 of 12. The 4 "opponent listed from the start" controls differ by design (stealth moves out of sight) |
+| `py tools/lead_trial.py --baseline 3b290b0` | 56 to 109 hits as before; move, boost and jump are not compared on the 36 recording decisions around dodges and stealth moves |
+| regressions | engagement held-out rules R0-R9 all pass; entrypoint (0 fire differences on the recording), dodge trial, combo check, objective checks, route (150/150), target trial, probe and verify.py pass. By design: the engagement scenario "first encounter, far, approaching" (a passive mech; stealth holds the shot) and its recording movement; pickup "opponent beside pickup" reaches the goal in 4 of 10 runs (it hides from the opponent; no zone exits); the shell trial cannot show a gain against a baseline that already dodges shells |

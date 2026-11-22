@@ -86,3 +86,7 @@ Built on mortar-dodge (`1645c22`, official 3.00). The v8 bullet dodge steps asid
 ## hide-spot-on-dodge-tuned
 
 Built on dodge-tuned (`dd9b731`, official 3.10). Waits at the least exposed reachable spot near the next zone centre (`hide.py`, `exposure.u8`). Run `py tools/hide_trial.py`.
+
+## stealth
+
+Built on hide-spot on dodge-tuned (`d62b1b5`; dodge-tuned scored 3.10). Before the endgame the bot waits at a sheltered spot near the zone centre, moves out of sight of any mech it sees unless one is attacking it, and does not shoot at passive mechs; with 4 or fewer mechs alive, or the last circles, it fights as dodge-tuned does (`stealth.py`). Run `py tools/stealth_trial.py`.
