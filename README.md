@@ -124,3 +124,7 @@ Built on squad-fire-move (`8805ed6`) with squad-econ (`f8dc9bf`, official 3.29).
 - `squad_econ.py`, the economy part: loot all match, camping on an inner zone circle, the idle scan and the stuck rule. Its crate and drone shots apply only when the fire part has nothing to shoot, its idle aim only when there is no enemy to face.
 
 Movement, highest first: the stuck recovery; the bullet and shell dodges (the final word); zone must; the LoseRule retreat; the fight move with the mid-fight cube grab; supply drops and relocation; zone should; the fire part's weapon detour; loot; camp or walk to the zone goal. Outside practice mode every decision is farm-power's. Run the three part trials (`py tools/squad_fire_trial.py`, `py tools/squad_move_trial.py`, `py tools/squad_econ_trial.py`) and `py tools/practice_trial.py` (mode switch, decision time with every part busy, fuzz, the movement priority).
+
+## squad-all-sticky
+
+squad-all (`9399d0d`) with practice mode kept on until three mechs have died to something other than us.

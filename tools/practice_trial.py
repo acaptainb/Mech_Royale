@@ -93,7 +93,7 @@ def bullet(key, origin, bearing, distance, toward=True):
 
 # --- 1. mode switch ------------------------------------------------------------------------------
 
-def rich(k, t0=0.0, alive_from=None):
+def rich(k, t0=0.0, alive_from=None, deaths=1):
     """Every kind of thing a decision can see: an attacker hitting us, a passive and a weak mech,
     a drone, a crate, cubes, weapon pickups, a bullet now and then, offers and a draining
     magazine. alive drops to 15 from decision alive_from (a death we did not cause)."""
@@ -107,7 +107,7 @@ def rich(k, t0=0.0, alive_from=None):
                dict(id=8002, kind="lightning", pos=at(HOME, OPEN - 120, 20))]
     obs = et.frame(k, mechs, events, weapons=[gun, None], pickups=pickups)
     obs["t"] = round(t0 + 0.1 * k, 2)
-    obs["alive"] = 15 if alive_from is not None and k >= alive_from else 16
+    obs["alive"] = 16 - deaths if alive_from is not None and k >= alive_from else 16
     obs["crates"] = [dict(id=1001, pos=at(HOME, OPEN + 200, 60), hp=300)]
     obs["cubes"] = [dict(id=5001, pos=at(HOME, OPEN - 160, 30)), dict(id=5002, pos=at(HOME, OPEN + 100, 90))]
     obs["projectiles"] = [bullet(9000 + k, HOME, OPEN, 40)] if k % 25 == 3 else []
@@ -143,12 +143,18 @@ def mode_switch(folder):
           f"  {check(same == total, 'mode switch: engagement scenarios')}")
     d = compare(folder, lambda k: rich(k), 200)
     print(f"   rich scenario, 0-19.9 s: identical on {200 - len(d)}/200  {check(not d, 'mode switch: before 20 s')}")
-    d = compare(folder, lambda k: rich(k, alive_from=100), 600)
-    print(f"   rich scenario, a death we did not cause at 10 s, run to 60 s: identical on {600 - len(d)}/600"
-          f"  {check(not d, 'mode switch: outside death')}")
+    d = compare(folder, lambda k: rich(k, alive_from=100, deaths=3), 600)
+    print(f"   rich scenario, three deaths we did not cause at 10 s, run to 60 s: identical on {600 - len(d)}/600"
+          f"  {check(not d, 'mode switch: three outside deaths')}")
+    d = compare(folder, lambda k: rich(k, alive_from=100, deaths=2), 600)
+    early = [k for k in d if k < 200]
+    print(f"   squad-sticky: two outside deaths at 10 s: identical before 20 s ({200 - len(early)}/200), practice"
+          f" mode after it ({len(d) - len(early)}/400 differ)  {check(not early and len(d) - len(early) > 200, 'mode switch: two outside deaths keep practice mode')}")
     d = compare(folder, lambda k: copy.deepcopy(et.STREAM[k]), len(et.STREAM))
-    print(f"   standard recording (a mech dies to someone else at 18 s): identical on {len(et.STREAM) - len(d)}"
-          f"/{len(et.STREAM)}  {check(not d, 'mode switch: recording')}")
+    early = [k for k in d if et.STREAM[k]["t"] <= 20]
+    print(f"   standard recording (one mech dies to someone else at 18 s): identical up to 20 s"
+          f" ({len(early)} differ there); {len(d) - len(early)} later answers differ (practice mode)"
+          f"  {check(not early, 'mode switch: recording before 20 s')}")
     d = compare(folder, lambda k: rich(k, t0=20.05), 200)
     print(f"   control, the rich scenario at 20.05-39.95 s (practice mode): {len(d)}/200 answers differ"
           f"  {check(len(d) > 100, 'mode switch: practice control')}")
