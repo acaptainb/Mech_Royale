@@ -8,11 +8,12 @@ from first_run import Bot as FirstRun
 from loot import PickupDetour
 from navigation import Navigator
 from objectives import Objectives
+from rooftop import Rooftop
 from targeting import Engagement
 
 
 class Bot(FirstRun):
-    name = "zone-runner-dodge-tuned"
+    name = "zone-runner-dt-rooftop"
 
     def __init__(self, hello):
         super().__init__(hello)
@@ -22,6 +23,7 @@ class Bot(FirstRun):
         self.engagement = Engagement(hello, Cover())
         self.dodge = Dodge(hello, self.nav)
         self.shell_dodge = ShellDodge(hello, self.nav, self.engagement.cover)
+        self.rooftop = Rooftop(hello)
 
     def act(self, obs):
         action = super().act(obs)
@@ -59,10 +61,14 @@ class Bot(FirstRun):
         walk_time = max(0,distance_to_safe) / max(1,me["stats"]["walk_speed"])
         late = distance_to_safe > 0 and obs["t"] + walk_time + 4 > zone["shrink_start"]
         action["boost"] = (late or not me["in_zone"]) and me["energy"] > 15
-        # v8: one brief sideways step when a visible bullet is on course to hit us,
-        # never while the zone return is urgent.
         urgent = mode == "return" or late or not me["in_zone"]
-        self.dodge.steer(obs, action, urgent=urgent)
+        # rooftop: during ordinary zone movement with time to spare and nobody listed, jet onto
+        # a nearby flat roof inside the next circle and camp there until the zone moves on.
+        self.rooftop.steer(obs, action, mode=mode, urgent=urgent, recovering=recovering, pickup=pickup)
+        # v8: one brief sideways step when a visible bullet is on course to hit us,
+        # never while the zone return is urgent, nor during a rooftop run, climb or descent.
+        if self.rooftop.dodge_ok:
+            self.dodge.steer(obs, action, urgent=urgent)
         # mortar-dodge: step out of the blast of a visible mortar shell that would land on
         # our route; it has the last word on movement, and never acts on an urgent return.
         self.shell_dodge.steer(obs, action, urgent=urgent)
