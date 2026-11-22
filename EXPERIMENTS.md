@@ -24,8 +24,9 @@ Practice seeds are fixed for the whole event and the bot is deterministic. A ver
 | combo B: combo A + v12 | `combo-b` | `32259f0dc1c7edf7b5241f18c62fc2632749564c` | `f0a59c7` | 2.58 | -0.02 (-0.05 vs 2.63) |
 | duel-strafe | `duel-strafe` | `2b8e620b618581f267189f12ca46d12b5be28588` | `3b290b0` (2.63) | 2.46 (submission row SHA still to be matched to `2b8e620`) | -0.17 |
 | duel-weave | `duel-weave` | not a candidate: failed its pre-submission gate | `3b290b0` (2.63) | not submitted | n/a |
-| no-mortar | `no-mortar` | `df1be152ba1bee40a368979ccb01eef1b7f9b347` | `3b290b0` (2.63) | pending | pending |
-| lead-shots | `lead-shots` | this commit (tag `lead-shots-candidate`) | `3b290b0` (2.63) | pending | pending |
+| no-mortar | `no-mortar` | `df1be152ba1bee40a368979ccb01eef1b7f9b347` | `3b290b0` (2.63) | 2.58 | -0.05 |
+| lead-shots | `lead-shots` | `4d8a32d3c453d3efb430baddb4bd141678417d77` | `3b290b0` (2.63) | **2.90** | +0.27 |
+| crate-shoot | `crate-shoot` | this commit (tag `crate-shoot-candidate`) | `4d8a32d` (2.90) | pending | pending |
 
 ## Log
 
@@ -43,8 +44,9 @@ Practice seeds are fixed for the whole event and the bot is deterministic. A ver
 | combos A and B | `3b290b0` | `f0a59c7`, `32259f0` | v10 + v11, then v12, add to v8 + v7 | v10, v11 and v12 as on their own branches | each trial reproduced its standalone result | 2.60 and 2.58 | revert: both below 2.63, so v10 or v11 fired in practice and cost placements, and v12 cost more |
 | duel-strafe | `3b290b0` | this commit (tag `duel-strafe-candidate`) | walking sideways to the only, clearly visible opponent during ordinary zone movement helps survive the exchange | eligible on 115 of 300 recording decisions; the move changed on all 115 | hit rate under a leading shooter -17% and -11%, but routes stall while the opponent stays in view (see below) | 2.46 (-0.17) | revert: it fired at about 150 m, mostly against a laser user (hitscan, not dodgeable by walking), and replaced progress toward the zone |
 | duel-weave | `3b290b0` | not a candidate | angling the waypoint 20 degrees, alternating sides, in a clear duel keeps progress and cuts hits | eligible on 115 of 300 recording decisions; the move changed on all 115 | 16 held-out routes: 16/16 finished, but 570 hits vs 554 for 2.63 and safety 0.8 s later | not submitted | gate not passed: more hits than 2.63 |
-| lead-shots | `3b290b0` | this commit (tag `lead-shots-candidate`) | aiming the gun where a moving opponent will be when the bullet arrives lands more hits, so we kill more of the house bots that hunt us before we die | every decision with a moving opponent: aim led on 169 of 300 recording decisions | hits 56 to 109 of 130 shots (43% to 84%) in a closed-loop gunfight; never fewer; laser still released onto a moving target; only the aim changes | pending | pending your score |
-| no-mortar | `3b290b0` | `df1be15` (tag `no-mortar-candidate`) | never carrying a mortar helps: we cannot aim it, and holding one makes every laser hit on us cook off for +60% | whenever v5 would detour for or walk over a mortar (a third of floor weapons); 0 on the recording (no mortar within 70 m) | never carries a mortar in any layout; takes a laser instead when one is near; control identical | pending | pending your score |
+| lead-shots | `3b290b0` | this commit (tag `lead-shots-candidate`) | aiming the gun where a moving opponent will be when the bullet arrives lands more hits, so we kill more of the house bots that hunt us before we die | every decision with a moving opponent: aim led on 169 of 300 recording decisions | hits 56 to 109 of 130 shots (43% to 84%) in a closed-loop gunfight; never fewer; laser still released onto a moving target; only the aim changes | **2.90 (+0.27)** | **keep: best score; parent of the next candidates** |
+| no-mortar | `3b290b0` | `df1be15` (tag `no-mortar-candidate`) | never carrying a mortar helps: we cannot aim it, and holding one makes every laser hit on us cook off for +60% | whenever v5 would detour for or walk over a mortar (a third of floor weapons); 0 on the recording (no mortar within 70 m) | never carries a mortar in any layout; takes a laser instead when one is near; control identical | 2.58 (-0.05) | revert: the mortar is worth carrying |
+| crate-shoot | `4d8a32d` | this commit (tag `crate-shoot-candidate`) | shooting loot crates with the gun while nobody is around adds cubes (+4% HP and damage each) and weapons, so we last longer and kill more | whenever no mech is listed or has hit us in 5 s, no pickup detour runs, and a crate is visible within 90 m on a clear line; 2 of 300 decisions on the recording | closed loop: crates at 30, 60 and 85 m destroyed in 1.6, 1.7 and 5.4 s where the baseline never shoots; 120 m, behind cover, mech listed, unseen shooter and pickup detour identical; gun only | pending | pending your score |
 
 ## v6: selective engagement
 
@@ -236,6 +238,28 @@ Evidence (`py tools/lead_trial.py`: a closed-loop gunfight against `3b290b0`, bo
 - **Recording:** the aim is led on all 169 decisions with an opponent listed, and no command other than aim differs. The first led decision is at t=4.9, 140 m away: yaw +0.850 against +0.807.
 - **Narrowed checks:** the laser trial's recording control now compares fire commands, and the engagement held-out rule R3 also accepts a lead bearing, computed independently in the trial.
 - **Other checks:** the dodge trial, combo check, objective checks, route, pickup and target trials, the probe and `verify.py` all pass.
+
+## crate-shoot (on `4d8a32d`, the 2.90 commit)
+
+**Change.** When v6 has no opponent to face (no game mech listed, no turn toward an unseen attacker), no mech (ids 0-15) has hit us in the last 5 s and no pickup detour is running, `Engagement.crate_shot` aims at the centre of the nearest crate listed within 90 m whose line is clear on the cover raster, and the gun fires at it with reason `crate shoot`. 36 crates per match have 300 HP (7 gun hits); each drops 1 cube and, half the time, a weapon, which the existing cube walk and pickup detour then collect. Only the gun shoots crates: a laser charge would halve walking speed and put the laser on cooldown, a mortar shell would be spent and lightning costs energy, so those triggers stay released. Movement is not touched. `Engagement.crate_shots` counts the decisions.
+
+**Possible costs.** The torso (vision wedge and front armour arc) turns to the crate instead of along the route, gunfire is audible, and the magazine is emptied: the existing reload at 5 rounds with nothing listed takes 2.4 s.
+
+**Evidence** (`py tools/crate_shoot_trial.py`, baseline exported from `4d8a32d`, both as real bot processes from identical starts; our mech stands still, every crate is listed, bullets hit a crate's cylinder):
+
+| Case | Destroyed (base / cand) | Destroyed at | Cubes / pickups listed after (cand) | Shots (base / cand) |
+| --- | --- | --- | --- | --- |
+| crate at 30 m | 0 / 1 | 1.6 s | 1 / 0 | 0 / 7 |
+| crate at 60 m | 0 / 1 | 1.7 s | 1 / 1 | 0 / 7 |
+| crate at 85 m | 0 / 1 | 5.4 s | 1 / 0 | 0 / 13 |
+| crates at 30, 60 and 85 m | 0 / 3 | 1.6, 5.8, 13.1 s | 3 / 1 | 0 / 25 |
+| crate at 60 m, laser in slot 1 | 0 / 1 | | 1 / 0 | 0 / 7 (laser trigger held on 0 decisions) |
+| crate at 120 m; behind cover; a mech listed; an unseen mech shelled us 0-4.8 s ago | identical | | | |
+| pickup detour active, crate at 30 m (20 decisions) | identical | | | |
+
+Recording: 33 decisions list a crate, 2 are crate-shoot decisions (crate `1019` at 89 m with nothing listed, t=4.5 and 4.8), and those 2 are the only answers that differ (aim and fire).
+
+Narrowed checks: the recording controls in `tools/lead_trial.py` (aim only) and `tools/entrypoint_trial.py` (fire only) failed on exactly those 2 decisions, so both now leave out decisions an in-process copy of the candidate reports as `crate shoot`, and print how many. Any other difference still fails. Every other regression passes unchanged: engagement trial and `--heldout`, `lead_trial` against `3b290b0` (169 led aims) and `4d8a32d` (identical), `entrypoint_trial` against `4588e6b`, dodge trial, combo check, objective, route, pickup and target trials, probe and `verify.py`.
 
 ## Next experiment: laser trigger discipline (#3)
 

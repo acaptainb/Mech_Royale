@@ -264,17 +264,24 @@ def main():
               f"{str(b['fire']):14}  {fmt(b['beams']):10}  {str(c['fire']):15}  {fmt(c['beams'])}")
 
     # Control on the standard recording: no laser is ever held, so both must answer identically.
+    # crate-shoot: decisions where the candidate fires its gun at a crate are that change, not
+    # the laser trigger, so they are counted and left out (read from an in-process copy).
+    from bot import Bot
+    local, crate = Bot(et.HELLO), []
+    for obs in et.STREAM:
+        local.act(copy.deepcopy(obs))
+        crate.append(local.engagement.decision.get("reason") == "crate shoot")
     base_bot, cand_bot = BotProcess(folder), BotProcess(ROOT)
     differing = 0
-    for obs in et.STREAM:
+    for obs, skip in zip(et.STREAM, crate):
         a, b = base_bot.act(copy.deepcopy(obs)), cand_bot.act(copy.deepcopy(obs))
         # This trial is about the laser trigger: later versions may aim or move differently.
-        differing += a.get("fire") != b.get("fire")
+        differing += a.get("fire") != b.get("fire") and not skip
     p99 = sorted(cand_bot.times)[int(0.99 * len(cand_bot.times))] * 1e3
     base_bot.close()
     cand_bot.close()
     print(f"\nrecording control: fire commands differ on {differing} of {len(et.STREAM)} decisions"
-          f" (candidate round trip p99 {p99:.1f} ms through stdin/stdout)")
+          f" (crate-shoot decisions left out: {sum(crate)}; candidate round trip p99 {p99:.1f} ms through stdin/stdout)")
     if differing:
         failures.append("recording control")
     if failures:

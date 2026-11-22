@@ -12,7 +12,7 @@ from targeting import Engagement
 
 
 class Bot(FirstRun):
-    name = "zone-runner-lead-shots"
+    name = "zone-runner-crate-shoot"
 
     def __init__(self, hello):
         super().__init__(hello)
@@ -79,12 +79,18 @@ class Bot(FirstRun):
                     action["reload"] = True
         # v6: opponent choice and the decision to shoot replace the inherited nearest-mech
         # rule. Movement, pickups and how the weapons are triggered are as in v5.
-        engage = self.engagement.decide(obs)
+        # crate-shoot: with nobody to fight, the engagement aims the gun at a nearby crate; not
+        # during a pickup detour, which keeps facing its pickup.
+        engage = self.engagement.decide(obs, crates=pickup is None)
         # During a pickup detour v5 faces the pickup to keep it in view; only a listed
         # opponent overrides that, never the turn toward an unseen attacker.
         if engage["aim"] is not None and not (pickup is not None and engage["target"] is None):
             action["aim"] = engage["aim"]
         fire = [bool(engage["fire"]), bool(engage["fire"])]
+        if engage.get("crate") is not None:
+            # Only the gun shoots crates: a laser charge halves walking speed and leaves the
+            # laser on cooldown, a mortar shell is spent, and lightning costs energy.
+            fire = [bool(w and w.get("kind") == "gun") for w in (list(me["weapons"]) + [None, None])[:2]]
         if not engage["fire"] and engage["target"] is not None:
             # Letting go of a charging laser fires it along the current aim, into the cover
             # or at an opponent we chose to spare. Keep that trigger held, as v5 does while

@@ -214,13 +214,17 @@ def main():
     mf.draw.line = mf.draw.point = mf.draw.label = lambda *args: None
     from bot import Bot
     local = Bot(et.HELLO)
+    crate = []  # crate-shoot: decisions spent on a crate are that change, counted and left out
     for obs in et.STREAM:
         local.act(copy.deepcopy(obs))
+        crate.append(local.engagement.decision.get("reason") == "crate shoot")
     base_bot, cand_bot = BotProcess(folder, et.HELLO), BotProcess(ROOT, et.HELLO)
     aim_diff = other_diff = 0
     trace = []
-    for obs in et.STREAM:
+    for obs, skip in zip(et.STREAM, crate):
         a, c = base_bot.act(copy.deepcopy(obs)), cand_bot.act(copy.deepcopy(obs))
+        if skip:
+            continue
         aim_diff += a.get("aim") != c.get("aim")
         rest = lambda x: {k: v for k, v in x.items() if k not in ("aim", "tick", "debug")}
         other_diff += rest(a) != rest(c)
@@ -229,7 +233,8 @@ def main():
     base_bot.close()
     cand_bot.close()
     print(f"\nrecording: aim led on {getattr(local.engagement, 'led', 0)} decisions; aim differs from the baseline on"
-          f" {aim_diff} of {len(et.STREAM)}; any other command differs on {other_diff}")
+          f" {aim_diff} of {len(et.STREAM)}; any other command differs on {other_diff}"
+          f" (crate-shoot decisions left out: {sum(crate)})")
     for t, a, c, v, d in trace:
         print(f"  t={t:4.1f}  opponent {d} m away moving {v}: baseline aim yaw {a[0]:+.3f}, lead aim yaw {c[0]:+.3f}")
     if other_diff:
