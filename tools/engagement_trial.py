@@ -634,7 +634,7 @@ class Exact:
 
 RULES = [
     "R0 act() never raises and the action is valid JSON",
-    "R1 never shoot a drone that has not hit us",
+    "R1 never shoot a drone that has not hit us, except drone-hunt: no mech listed, none hit us in 5 s, within 90 m",
     "R2 a recent clear attacker beats passive mechs at most 25 m closer",
     "R3 the emitted aim matches the chosen opponent",
     "R4 prompt release: never the vanished opponent, and a listed one or the attacker bearing next",
@@ -705,9 +705,13 @@ def heldout(seed, cases=400):
             target = next((o for o in listed if o["id"] == chosen), None)
             distance = math.dist(target["pos"], me) if target else None
             recent_attack = attacker is not None and last_hit is not None and obs["t"] - last_hit <= 5.0
-            # R1
+            # R1 (drone-hunt onward a passive drone within 90 m may be shot while no game mech
+            # is listed and no mech has hit us within the 5 s attack memory)
+            hunt_ok = (distance is not None and distance <= 90.0
+                       and not any(o["kind"] == "mech" for o in listed)
+                       and not (recent_attack and attacker["kind"] == "mech"))
             if target and target["kind"] == "npc" and fired and not (
-                    recent_attack and attacker["id"] == target["id"]):
+                    recent_attack and attacker["id"] == target["id"]) and not hunt_ok:
                 fail(RULES[1], (case, k))
             # R2
             if (attacker and attacker["kind"] == "mech" and last_hit is not None

@@ -91,6 +91,7 @@ class Engagement:
     THREAT_AIM_DEG = 12.0     # its torso aim within this angle of us counts as aiming at us
     THREAT_RANGE_M = 280.0    # the longest weapon reach (laser)
     LEAD_MIN_MPS = 0.5        # lead-shots: slower opponents are aimed at directly
+    HUNT_RANGE_M = 90.0       # drone-hunt: passive drones this close are shot when no mech is around
 
     def __init__(self, hello, cover):
         config = hello["config"]
@@ -108,6 +109,7 @@ class Engagement:
         self.hits = {}        # id -> time we last damaged it
         self.decision = {}    # the last decision, for tests and debug drawing
         self.led = 0          # lead-shots: decisions whose aim was led, for local reports
+        self.drone_hunt = 0   # drone-hunt: decisions spent shooting a passive drone
 
     def observe(self, obs):
         now = obs["t"]
@@ -185,14 +187,21 @@ class Engagement:
         weapons = me_state.get("weapons") or []
         reach = self.reach(weapons)
         scores, facts = {}, {}
+        # drone-hunt: with no game mech in sight and no mech hitting us, passive drones in
+        # range become targets; each kill drops 2 cubes (+4% HP and damage each).
+        hunting = (not any(o.get("kind") == "mech" for o in obs.get("mechs") or ())
+                   and not any(isinstance(k, int) and 0 <= k < 100 for k in self.attackers))
         for other in obs.get("mechs") or ():
             key, kind = other.get("id"), other.get("kind")
-            if kind == "npc" and key not in self.attackers:
-                continue  # leave passive drones alone
             if kind not in ("mech", "npc"):
                 continue
             distance = math.dist(other["pos"], me)
+            hunt = kind == "npc" and key not in self.attackers
+            if hunt and not (hunting and distance <= self.HUNT_RANGE_M):
+                continue  # leave passive drones alone
             clear = self.cover.clear(muzzle, self.centre(other))
+            if hunt and not clear:
+                continue
             attacker = key in self.attackers
             threat = key in self.threats and distance <= self.THREAT_RANGE_M
             committed = key in self.hits
@@ -207,7 +216,7 @@ class Engagement:
                 score += self.SECOND_TIER_M
             scores[key] = score
             facts[key] = dict(other=other, distance=distance, clear=clear, attacker=attacker,
-                              threat=threat, committed=committed, fighting=fighting)
+                              threat=threat, committed=committed, fighting=fighting, hunt=hunt)
         target = self.selector.choose(now, scores)
         unseen = [seen for key, seen in self.attackers.items()
                   if key not in facts and seen[1] is not None]
@@ -241,10 +250,12 @@ class Engagement:
             fire, reason = False, "hold: behind cover"
         elif distance > reach:
             fire, reason = False, "hold: out of range"
-        elif fact["fighting"] or distance <= self.close:
+        elif fact["fighting"] or distance <= self.close or fact["hunt"]:
             fire = True
             reason = ("attacker" if fact["attacker"] else "aiming at us" if fact["threat"]
-                      else "committed" if fact["committed"] else "close")
+                      else "committed" if fact["committed"] else "drone hunt" if fact["hunt"] else "close")
+            if fact["hunt"]:
+                self.drone_hunt += 1
         elif self.shots_land(other, me, distance, weapons):
             fire, reason = True, "open fire: shots land"
         else:

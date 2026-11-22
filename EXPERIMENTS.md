@@ -24,8 +24,9 @@ Practice seeds are fixed for the whole event and the bot is deterministic. A ver
 | combo B: combo A + v12 | `combo-b` | `32259f0dc1c7edf7b5241f18c62fc2632749564c` | `f0a59c7` | 2.58 | -0.02 (-0.05 vs 2.63) |
 | duel-strafe | `duel-strafe` | `2b8e620b618581f267189f12ca46d12b5be28588` | `3b290b0` (2.63) | 2.46 (submission row SHA still to be matched to `2b8e620`) | -0.17 |
 | duel-weave | `duel-weave` | not a candidate: failed its pre-submission gate | `3b290b0` (2.63) | not submitted | n/a |
-| no-mortar | `no-mortar` | `df1be152ba1bee40a368979ccb01eef1b7f9b347` | `3b290b0` (2.63) | pending | pending |
-| lead-shots | `lead-shots` | this commit (tag `lead-shots-candidate`) | `3b290b0` (2.63) | pending | pending |
+| no-mortar | `no-mortar` | `df1be152ba1bee40a368979ccb01eef1b7f9b347` | `3b290b0` (2.63) | 2.58 | -0.05 |
+| lead-shots | `lead-shots` | `4d8a32d3c453d3efb430baddb4bd141678417d77` | `3b290b0` (2.63) | **2.90** | +0.27 |
+| drone-hunt | `drone-hunt` | this commit (tag `drone-hunt-candidate`) | `4d8a32d` (2.90) | pending | pending |
 
 ## Log
 
@@ -43,8 +44,9 @@ Practice seeds are fixed for the whole event and the bot is deterministic. A ver
 | combos A and B | `3b290b0` | `f0a59c7`, `32259f0` | v10 + v11, then v12, add to v8 + v7 | v10, v11 and v12 as on their own branches | each trial reproduced its standalone result | 2.60 and 2.58 | revert: both below 2.63, so v10 or v11 fired in practice and cost placements, and v12 cost more |
 | duel-strafe | `3b290b0` | this commit (tag `duel-strafe-candidate`) | walking sideways to the only, clearly visible opponent during ordinary zone movement helps survive the exchange | eligible on 115 of 300 recording decisions; the move changed on all 115 | hit rate under a leading shooter -17% and -11%, but routes stall while the opponent stays in view (see below) | 2.46 (-0.17) | revert: it fired at about 150 m, mostly against a laser user (hitscan, not dodgeable by walking), and replaced progress toward the zone |
 | duel-weave | `3b290b0` | not a candidate | angling the waypoint 20 degrees, alternating sides, in a clear duel keeps progress and cuts hits | eligible on 115 of 300 recording decisions; the move changed on all 115 | 16 held-out routes: 16/16 finished, but 570 hits vs 554 for 2.63 and safety 0.8 s later | not submitted | gate not passed: more hits than 2.63 |
-| lead-shots | `3b290b0` | this commit (tag `lead-shots-candidate`) | aiming the gun where a moving opponent will be when the bullet arrives lands more hits, so we kill more of the house bots that hunt us before we die | every decision with a moving opponent: aim led on 169 of 300 recording decisions | hits 56 to 109 of 130 shots (43% to 84%) in a closed-loop gunfight; never fewer; laser still released onto a moving target; only the aim changes | pending | pending your score |
-| no-mortar | `3b290b0` | `df1be15` (tag `no-mortar-candidate`) | never carrying a mortar helps: we cannot aim it, and holding one makes every laser hit on us cook off for +60% | whenever v5 would detour for or walk over a mortar (a third of floor weapons); 0 on the recording (no mortar within 70 m) | never carries a mortar in any layout; takes a laser instead when one is near; control identical | pending | pending your score |
+| lead-shots | `3b290b0` | this commit (tag `lead-shots-candidate`) | aiming the gun where a moving opponent will be when the bullet arrives lands more hits, so we kill more of the house bots that hunt us before we die | every decision with a moving opponent: aim led on 169 of 300 recording decisions | hits 56 to 109 of 130 shots (43% to 84%) in a closed-loop gunfight; never fewer; laser still released onto a moving target; only the aim changes | **2.90 (+0.27)** | **keep: best score; parent of drone-hunt** |
+| no-mortar | `3b290b0` | `df1be15` (tag `no-mortar-candidate`) | never carrying a mortar helps: we cannot aim it, and holding one makes every laser hit on us cook off for +60% | whenever v5 would detour for or walk over a mortar (a third of floor weapons); 0 on the recording (no mortar within 70 m) | never carries a mortar in any layout; takes a laser instead when one is near; control identical | 2.58 (-0.05) | revert: below 2.63 |
+| drone-hunt | `4d8a32d` | this commit (tag `drone-hunt-candidate`) | shooting a passive drone within 90 m while no game mech is in sight earns its 2 cubes (+4% HP and damage each) before the house bots arrive | only while no mech is listed, no mech has hit us in 5 s and a drone is within 90 m on a clear line; 0 on the recording (no drone listed); 93 and 19 decisions in the 2 x 400 held-out encounters | a lone passive drone at 60 m or 85 m is killed in 1.9-2.0 s for 25-50 HP, dropping 2 cubes; at 120 m, behind cover or with a mech listed, identical to the baseline | pending | pending your score |
 
 ## v6: selective engagement
 
@@ -236,6 +238,45 @@ Evidence (`py tools/lead_trial.py`: a closed-loop gunfight against `3b290b0`, bo
 - **Recording:** the aim is led on all 169 decisions with an opponent listed, and no command other than aim differs. The first led decision is at t=4.9, 140 m away: yaw +0.850 against +0.807.
 - **Narrowed checks:** the laser trial's recording control now compares fire commands, and the engagement held-out rule R3 also accepts a lead bearing, computed independently in the trial.
 - **Other checks:** the dodge trial, combo check, objective checks, route, pickup and target trials, the probe and `verify.py` all pass.
+
+## drone-hunt (on `4d8a32d`, the 2.90 commit)
+
+**Why:** each NPC drone drops 2 cubes when killed. Each cube adds 4% max HP and 4% damage for the rest of the match. Since v6, the bot never shoots a drone until it has hit us, so in quiet stretches it walks past free cubes. The existing cube rule already collects drops within 16 m, so the change is only about choosing the drone as a target.
+
+**The change (targeting only):**
+
+- **When it hunts:** while no game mech is listed and no mech (id 0-99) is in the 5 s attack memory, `Engagement.decide` adds a passive drone as a candidate. The drone must be within `HUNT_RANGE_M = 90` m and on a clear line by the cover map.
+- **How it shoots:** the drone is aimed at with the lead-shots intercept and fired at under the reason "drone hunt". `Engagement.drone_hunt` counts those decisions.
+- **When it stops:** the moment a game mech is listed, passive drones leave the candidate list again. A drone that has hit us is an attacker under the inherited rules, as before.
+- **Why 90 m:** this is beyond the drone's 45 m aggro radius, so it walks toward us once hit, and it is its chase limit from its target.
+- **Unchanged:** movement, pickups, and every decision with a mech listed.
+
+Evidence (`py tools/drone_hunt_trial.py`). It runs a closed-loop drone fight against `4d8a32d`, both as real bot processes. The world has bullets, 350 drone HP and 45 damage per hit. Once hit, the drone closes to 30 m at 5 m/s and returns fire at 25 damage per second (90 m/s bullets, 2.5 deg spread). Each case runs 15 s.
+
+| Case | Drone kills base / cand | Cubes | HP lost | Kill at | Shots |
+| --- | --- | --- | --- | --- | --- |
+| lone passive drone, 60 m | 0 / 1 | 0 / 2 | 0 / 50 | - / 1.9 s | 0 / 8 |
+| lone passive drone, 85 m | 0 / 1 | 0 / 2 | 0 / 25 | - / 2.0 s | 0 / 9 |
+| passive drone, 120 m (beyond 90 m) | 0 / 0 | identical | | | |
+| passive drone at 60 m, a mech listed 180 m away | 0 / 0 | identical | | | |
+| passive drone behind cover | 0 / 0 | identical | | | |
+
+- **Trace** (60 m case):
+  - t=0.0: "drone hunt", firing.
+  - t=0.3-0.5: "committed" after the first hits.
+  - From t=0.9: "attacker", once the drone hits back.
+  - t=1.9: the drone dies and 2 cubes are listed.
+
+  After the kill the inherited unseen-attacker turn faces the dead drone's bearing for up to 5 s. This is existing behaviour for any drone that hit us.
+- **Recording:** no drone is ever listed, so drone-hunt makes 0 decisions there, and 0 of 300 decisions differ from the baseline, debug included.
+- **Held-out:** in the 2 x 400 randomized engagement encounters, "drone hunt" fires on 93 and 19 decisions.
+  - **Narrowed check:** the engagement held-out rule R1 ("never shoot a drone that has not hit us") now also allows the drone-hunt case: no mech listed, no mech hit us within 5 s, and the drone within 90 m. R7 (never through cover) and R9 (range) still apply.
+- **Practice activation:** this cannot be measured locally. The house bots share vision and hunt us, so mechs are listed much of the time. The rule fires only in the gaps.
+- **Other checks:** all of these pass:
+  - the engagement scenarios and held-out rules;
+  - `py tools/lead_trial.py --baseline 3b290b0` and `py tools/entrypoint_trial.py --baseline 4588e6b`;
+  - the dodge trial, combo check, objective checks, and the route, pickup and target trials;
+  - the probe and `verify.py`.
 
 ## Next experiment: laser trigger discipline (#3)
 
