@@ -12,7 +12,7 @@ from targeting import Engagement
 
 
 class Bot(FirstRun):
-    name = "zone-runner-crossing-fire"
+    name = "zone-runner-sensors-first"
 
     def __init__(self, hello):
         super().__init__(hello)
@@ -62,7 +62,8 @@ class Bot(FirstRun):
         # never while the zone return is urgent.
         self.dodge.steer(obs, action, urgent=mode == "return" or late or not me["in_zone"])
         if obs["offer"]:
-            priorities = ("armor","plating","nanites","servos","gun_rate","sensors")
+            # sensors-first: the Sensor suite (+15 m proximity, +25 m vision) leads the order.
+            priorities = ("sensors","armor","plating","nanites","servos","gun_rate")
             choices = obs["offer"]["choices"]
             action["pick"] = min(range(len(choices)),key=lambda i:
                 priorities.index(choices[i]["id"]) if choices[i]["id"] in priorities else len(priorities))
