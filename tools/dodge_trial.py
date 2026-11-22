@@ -110,7 +110,9 @@ def scripted():
     away = dict(id=3, kind="gun", pos=[home[0] - 20 * away_dir[0], home[1] - 20 * away_dir[1], et.ground(*home) + 4.5],
                 vel=[-GUN["speed"] * away_dir[0], -GUN["speed"] * away_dir[1], 0.0])
     cases.append(("bullet moving away", False, observation(0, home, walk, ahead, [away])))
-    cases.append(("mortar shell on course", False,
+    # mortar-dodge: shells are answered by ShellDodge (tools/shell_dodge_trial.py), so only the
+    # movement commands may differ here; the v8 bullet dodge itself still ignores shells.
+    cases.append(("mortar shell on course", "shell rule",
                   observation(0, home, walk, ahead, [bullet_at(4, home, walk, 150, across, kind="mortar")])))
     cases.append(("direct bullet, too close to clear (40 m)", False,
                   observation(0, home, walk, ahead, [bullet_at(9, home, walk, 40, across)])))
@@ -152,6 +154,10 @@ def run_scripted(folder):
             ok = plain(a) != plain(b) and across and b["boost"]
             text = "sideways to the bullet, boosting"
             trace = (obs, a, b)
+        elif expect == "shell rule":
+            moved = ("move", "boost", "jump")
+            ok = {k: v for k, v in plain(a).items() if k not in moved} == {k: v for k, v in plain(b).items() if k not in moved}
+            text = "only movement may differ (mortar-dodge shell rule)"
         elif expect == "open side":
             side = case[3]
             ok = across and (b["move"][0] * side[0] + b["move"][1] * side[1]) < -0.99

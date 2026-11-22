@@ -74,3 +74,7 @@ This branch is V8 (`4588e6b`, official 2.50) with V7's laser release (`f69d39c`,
 ## lead-shots
 
 Built on the 2.63 commit (`3b290b0`). The gun aims where a moving opponent will be when the bullet arrives; a fully charged laser is still aimed straight at the body. Run `py tools/lead_trial.py` for a closed-loop gunfight against the exported baseline.
+
+## mortar-dodge
+
+Built on lead-shots (`4d8a32d`, official 2.90). The bot steps out of the blast of a visible mortar shell that would land on its route (`ShellDodge` in `dodge.py`). It predicts each shell's flight against the cover raster, checks where the route would put us when the shell lands, and picks the clear direction with the least predicted damage, preferring the route direction. It never acts during an urgent zone return. Run `py tools/shell_dodge_trial.py` for the closed-loop shell trial against the exported baseline.

@@ -3,7 +3,7 @@ import math
 
 import mechfight as mf
 from cover import Cover
-from dodge import Dodge
+from dodge import Dodge, ShellDodge
 from first_run import Bot as FirstRun
 from loot import PickupDetour
 from navigation import Navigator
@@ -12,7 +12,7 @@ from targeting import Engagement
 
 
 class Bot(FirstRun):
-    name = "zone-runner-lead-shots"
+    name = "zone-runner-mortar-dodge"
 
     def __init__(self, hello):
         super().__init__(hello)
@@ -21,6 +21,7 @@ class Bot(FirstRun):
         self.loot = PickupDetour(hello)
         self.engagement = Engagement(hello, Cover())
         self.dodge = Dodge(hello, self.nav)
+        self.shell_dodge = ShellDodge(hello, self.nav, self.engagement.cover)
 
     def act(self, obs):
         action = super().act(obs)
@@ -60,7 +61,11 @@ class Bot(FirstRun):
         action["boost"] = (late or not me["in_zone"]) and me["energy"] > 15
         # v8: one brief sideways step when a visible bullet is on course to hit us,
         # never while the zone return is urgent.
-        self.dodge.steer(obs, action, urgent=mode == "return" or late or not me["in_zone"])
+        urgent = mode == "return" or late or not me["in_zone"]
+        self.dodge.steer(obs, action, urgent=urgent)
+        # mortar-dodge: step out of the blast of a visible mortar shell that would land on
+        # our route; it has the last word on movement, and never acts on an urgent return.
+        self.shell_dodge.steer(obs, action, urgent=urgent)
         if obs["offer"]:
             priorities = ("armor","plating","nanites","servos","gun_rate","sensors")
             choices = obs["offer"]["choices"]

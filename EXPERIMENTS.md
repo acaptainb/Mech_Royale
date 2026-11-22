@@ -24,8 +24,9 @@ Practice seeds are fixed for the whole event and the bot is deterministic. A ver
 | combo B: combo A + v12 | `combo-b` | `32259f0dc1c7edf7b5241f18c62fc2632749564c` | `f0a59c7` | 2.58 | -0.02 (-0.05 vs 2.63) |
 | duel-strafe | `duel-strafe` | `2b8e620b618581f267189f12ca46d12b5be28588` | `3b290b0` (2.63) | 2.46 (submission row SHA still to be matched to `2b8e620`) | -0.17 |
 | duel-weave | `duel-weave` | not a candidate: failed its pre-submission gate | `3b290b0` (2.63) | not submitted | n/a |
-| no-mortar | `no-mortar` | `df1be152ba1bee40a368979ccb01eef1b7f9b347` | `3b290b0` (2.63) | pending | pending |
-| lead-shots | `lead-shots` | this commit (tag `lead-shots-candidate`) | `3b290b0` (2.63) | pending | pending |
+| no-mortar | `no-mortar` | `df1be152ba1bee40a368979ccb01eef1b7f9b347` | `3b290b0` (2.63) | 2.58 | -0.05 |
+| lead-shots | `lead-shots` | `4d8a32d3c453d3efb430baddb4bd141678417d77` | `3b290b0` (2.63) | **2.90** (best; parent of the next candidates) | +0.27 |
+| mortar-dodge | `mortar-dodge` | this commit (tag `mortar-dodge-candidate`) | `4d8a32d` (2.90) | pending | pending |
 
 ## Log
 
@@ -43,8 +44,9 @@ Practice seeds are fixed for the whole event and the bot is deterministic. A ver
 | combos A and B | `3b290b0` | `f0a59c7`, `32259f0` | v10 + v11, then v12, add to v8 + v7 | v10, v11 and v12 as on their own branches | each trial reproduced its standalone result | 2.60 and 2.58 | revert: both below 2.63, so v10 or v11 fired in practice and cost placements, and v12 cost more |
 | duel-strafe | `3b290b0` | this commit (tag `duel-strafe-candidate`) | walking sideways to the only, clearly visible opponent during ordinary zone movement helps survive the exchange | eligible on 115 of 300 recording decisions; the move changed on all 115 | hit rate under a leading shooter -17% and -11%, but routes stall while the opponent stays in view (see below) | 2.46 (-0.17) | revert: it fired at about 150 m, mostly against a laser user (hitscan, not dodgeable by walking), and replaced progress toward the zone |
 | duel-weave | `3b290b0` | not a candidate | angling the waypoint 20 degrees, alternating sides, in a clear duel keeps progress and cuts hits | eligible on 115 of 300 recording decisions; the move changed on all 115 | 16 held-out routes: 16/16 finished, but 570 hits vs 554 for 2.63 and safety 0.8 s later | not submitted | gate not passed: more hits than 2.63 |
-| lead-shots | `3b290b0` | this commit (tag `lead-shots-candidate`) | aiming the gun where a moving opponent will be when the bullet arrives lands more hits, so we kill more of the house bots that hunt us before we die | every decision with a moving opponent: aim led on 169 of 300 recording decisions | hits 56 to 109 of 130 shots (43% to 84%) in a closed-loop gunfight; never fewer; laser still released onto a moving target; only the aim changes | pending | pending your score |
-| no-mortar | `3b290b0` | `df1be15` (tag `no-mortar-candidate`) | never carrying a mortar helps: we cannot aim it, and holding one makes every laser hit on us cook off for +60% | whenever v5 would detour for or walk over a mortar (a third of floor weapons); 0 on the recording (no mortar within 70 m) | never carries a mortar in any layout; takes a laser instead when one is near; control identical | pending | pending your score |
+| lead-shots | `3b290b0` | this commit (tag `lead-shots-candidate`) | aiming the gun where a moving opponent will be when the bullet arrives lands more hits, so we kill more of the house bots that hunt us before we die | every decision with a moving opponent: aim led on 169 of 300 recording decisions | hits 56 to 109 of 130 shots (43% to 84%) in a closed-loop gunfight; never fewer; laser still released onto a moving target; only the aim changes | **2.90 (+0.27)** | **keep: best score; parent of the next candidates** |
+| no-mortar | `3b290b0` | `df1be15` (tag `no-mortar-candidate`) | never carrying a mortar helps: we cannot aim it, and holding one makes every laser hit on us cook off for +60% | whenever v5 would detour for or walk over a mortar (a third of floor weapons); 0 on the recording (no mortar within 70 m) | never carries a mortar in any layout; takes a laser instead when one is near; control identical | 2.58 (-0.05) | revert: carrying the mortar is worth more than the cook-off risk |
+| mortar-dodge | `4d8a32d` | this commit (tag `mortar-dodge-candidate`) | stepping out of the blast of a visible mortar shell that would land on our route cuts the damage taken (200 direct + 160 splash per shell) | only while a mortar shell is visible and would hit our route within 2.5 s; 0 on the recording (no shell listed) | closed-loop shell damage 10,240 to 0 (tuning) and 12,040 to 360 (held-out); every route finished, 0 zone exits; 4 controls identical on every decision | pending | pending your score |
 
 ## v6: selective engagement
 
@@ -236,6 +238,54 @@ Evidence (`py tools/lead_trial.py`: a closed-loop gunfight against `3b290b0`, bo
 - **Recording:** the aim is led on all 169 decisions with an opponent listed, and no command other than aim differs. The first led decision is at t=4.9, 140 m away: yaw +0.850 against +0.807.
 - **Narrowed checks:** the laser trial's recording control now compares fire commands, and the engagement held-out rule R3 also accepts a lead bearing, computed independently in the trial.
 - **Other checks:** the dodge trial, combo check, objective checks, route, pickup and target trials, the probe and `verify.py` all pass.
+
+## mortar-dodge (on `4d8a32d`, the 2.90 commit)
+
+**Why:** the v8 dodge only answers straight bullets (`BULLETS = ("gun", "npc")`) and walks straight on under a mortar shell. A shell does 200 on a direct hit plus 160 splash, falling to 30% at 7 m, and its concussion throws us and drains 45 energy. Shells fly at 72 m/s under 22 m/s2 gravity, so most of them are visible long enough to step out of. v8's bullet dodge alone was worth +0.42.
+
+**The change** (`ShellDodge` in `dodge.py`, one call in `bot.py` right after the v8 dodge):
+
+- **Prediction:** each decision, every visible `mortar` projectile is integrated from its position and velocity (gravity from `hello.config.weapons.mortar`) in 25 ms steps for up to 2.5 s, until it meets terrain, a wall or a deck on the cover raster. A shell whose path passes through our body counts as a direct hit.
+- **Trigger:** our own path for the next 2.5 s is simulated from the current velocity and the route's move command (ground acceleration, walk or boost cap). The rule acts only when that path would take damage: a direct hit, or a burst within 7 m of our body plus a 1 m margin.
+- **The step:** 16 directions are scored by the same prediction, each with the first 4-12 m clear on the ground grid and ending 3 m inside the zone. It takes the least damage and, among near-equal options, the direction closest to the route, so it often just boosts on along the route. A step must cut the predicted damage by at least 10 HP. Steps are judged against shells that threaten the route or land within 25 m of it.
+- **Gates as in v8:** never during an urgent zone return (`mode == "return"`, late, or outside the zone). After a shell dodge ends, a dodge for a new shell waits 1 s. Boost is used only while more than 20 energy remains.
+- **Unchanged:** bullets keep the v8 behaviour, and aim, fire, pickups and every other command are untouched.
+- **Counters:** `ShellDodge.decisions` and `ShellDodge.counts`.
+
+Evidence (`py tools/shell_dodge_trial.py`: the exported `4d8a32d` and this tree as real bot processes from identical starts). A stationary mortar mech lobs shells at where we will be (low or high arc, 1.5 m aim spread, one every 2.6 s) while we walk a 120 m route. A shell is shown only while it is visible: within 45 m, or within 200 m and 60 deg of our aim. It bursts on the terrain or our body. Knock-back and energy drain are applied.
+
+| Check | lead-shots (2.90) | mortar-dodge |
+| --- | --- | --- |
+| shell landing on our route in 1.2 s | walks on `[1, 0]` | `[0.92, 0.38]`, boosting |
+| shell landing 25 m to the side; shell on us during an urgent zone return; shell landing after the 2.5 s horizon | | identical |
+| 16 tuning episodes (shooter 60-200 m, abeam or oblique, low or high arc) | 10,240 damage: 23 direct hits, 16 splashes; route time 160.1 s | 0 damage; route time 141.4 s; 609 boost energy; 0 zone exits; every route finished |
+| 16 held-out episodes on fresh routes | 12,040 damage: 27 direct, 19 splashes; 158.8 s | 360 damage (1 direct hit at 62 m, low arc); 137.9 s; 764 energy; 0 zone exits |
+| controls: shells aimed 30 m wide (low and high arc), a gun shooter only, shells on us while outside the zone | | identical commands on every decision (100, 100, 103, 67) |
+| standard recording (no shell listed) | | 0 of 300 answers differ, debug included |
+| decision time with shells in flight (this machine) | p99 0.8 ms | p99 2.7 ms, max 3.3 ms; 10 shells at once max 7.7 ms |
+
+**Trace** (100 m abeam, low arc; shells fired at 0.3 s and 2.9 s):
+
+- **First shell:** visible at 0.4 s. lead-shots walks on and the shell bursts on its body at 1.75 s (360 damage). mortar-dodge keeps the route direction but boosts from 0.4 to 1.6 s, and the shell bursts 11.8 m behind it (0 damage).
+- **Second shell:** visible at 3.0 s. lead-shots takes a direct hit at 4.25 s (360). mortar-dodge steers `[0.92, 0.38]`, boosting, for 0.5 s, then boosts on along the route until 4.2 s; the burst is 11.9 m away (0 damage).
+
+**What the trial cannot show:**
+
+- **The shooter model:** the trial shooter leads our current velocity, as a simple house bot might. A shooter that anticipates the dodge, or shells hidden behind buildings until late, would make it harder.
+- **Buildings:** the trial has no buildings for shells, though the bot's own prediction uses the cover raster.
+- **The splash rule:** the trial assumes splash is measured from our centre; the bot plans with our body radius plus a 1 m margin.
+- **Activation:** if no house bot fires a mortar at us in the 48 practice matches, the score reproduces 2.90 exactly.
+
+**Narrowed check:** `tools/dodge_trial.py`'s scripted "mortar shell on course" case expected the bot to ignore the shell entirely. It now requires only the non-movement commands to be identical. That shell is on course for a direct hit, and the new rule boosts on out of it; the v8 bullet dodge itself still ignores shells.
+
+**Other checks:** all pass.
+
+- the dodge trial (tuning 441 to 404 hits, held-out 596 to 554, as before);
+- the engagement trial and `--heldout`;
+- `lead_trial --baseline 3b290b0`;
+- `entrypoint_trial --baseline 4588e6b`;
+- combo check, objective checks, route, pickup and target trials;
+- the probe and `verify.py`.
 
 ## Next experiment: laser trigger discipline (#3)
 
