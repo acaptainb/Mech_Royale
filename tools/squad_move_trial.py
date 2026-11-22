@@ -18,10 +18,11 @@ behind deal x1.5, everyone regenerates 45 HP/s after 5 s out of combat, kills dr
 lower `alive`. A mech is listed as the server does (45 m all round or 200 m inside our 120 deg
 wedge, with a clear line; kept 5 s), or always when a scenario says so. Standard library only.
 
-1. Scripted scenarios: range held with a laser and gun-only, a spot with a line of fire, a spot
-   a second hunter cannot see, the strafe, a mid-fight cube grab, finish mode, the LoseRule
-   pulse (and finishing and late cancelling it), the cover search, the laser sidestep, and
-   identity with the baseline before 20 s, after an outside death and on an urgent zone return.
+1. Scripted scenarios: range held with a laser and gun-only, no fight move toward a foe with no
+   line of fire, a spot a second hunter cannot see, the strafe, a mid-fight cube grab (not for a
+   cube we cannot reach, given up when we get no closer), finish mode, the LoseRule pulse (and
+   finishing and late cancelling it), the cover search, the laser sidestep, and identity with
+   the baseline before 20 s, after an outside death and on an urgent zone return.
 2. Closed-loop fights against hunters walking in from 200 m: damage taken, kills, kill time.
 3. Decision time, a fuzz pass for exceptions, and the standard recording.
 """
@@ -152,7 +153,7 @@ def run(folder, start, hunters, seconds=20.0, t0=T0, hp0=1400.0, laser=False, zo
     held = 0.0
     zone = copy.deepcopy(zone) if zone else dict(center=list(start), radius=400.0, next_center=list(start),
                                                  next_radius=250.0, shrink_start=1000.0, shrink_end=1050.0, dps=20)
-    items = [dict(id=5000 + n, pos=[c[0], c[1], et.ground(*c)]) for n, c in enumerate(cubes)]
+    items = [dict(id=5000 + n, pos=[c[0], c[1], c[2] if len(c) > 2 else et.ground(*c[:2])]) for n, c in enumerate(cubes)]
     next_cube = 5000 + len(items)
     alive_count = alive if alive is not None else 16  # practice: us and 15 house mechs
     bullets, events, rows = [], [], []
@@ -538,6 +539,35 @@ def cover_spot(distances=(80, 120), spread=35):
     raise RuntimeError("no cover spot")
 
 
+def roof_cube_spot():
+    """A walkable start with a cube spot 12-36 m away on a low roof or ledge (1.6-3.8 m above the
+    ground at the start) and no walkable grid cell within 3.6 m of it, plus a mech spot 90 m away
+    with a clear line of fire from the start."""
+    def near_free(x, y, r):
+        i0, j0 = round((x - GRID.ox) / GRID.step), round((y - GRID.oy) / GRID.step)
+        return any(0 <= i < GRID.width and 0 <= j < GRID.height and GRID.free[j * GRID.width + i]
+                   and math.hypot(GRID.ox + i * GRID.step - x, GRID.oy + j * GRID.step - y) <= r
+                   for j in range(j0 - 2, j0 + 3) for i in range(i0 - 2, i0 + 3))
+    free = [k for k in range(len(GRID.free)) if GRID.free[k]]
+    for k in free[::37]:
+        origin = GRID.point(k)
+        g0 = et.ground(*origin)
+        for a in range(0, 360, 20):
+            for d in (12, 18, 24, 30, 36):
+                x, y = point(origin, a, d)
+                ci, cj = int((x - COVER.ox) / COVER.cell), int((y - COVER.oy) / COVER.cell)
+                if not (0 <= ci < COVER.nx and 0 <= cj < COVER.ny):
+                    continue
+                top = COVER.top[cj * COVER.nx + ci] / 100
+                if not (g0 + 1.6 < top < g0 + 3.8) or near_free(x, y, 3.6):
+                    continue
+                for b in range(0, 360, 10):
+                    foe = point(origin, b, 90)
+                    if dt.walkable(foe) and shot_clear(origin, foe):
+                        return origin, (x, y, top), foe
+    raise RuntimeError("no roof cube spot")
+
+
 def fight_spots():
     """Starts for the closed-loop fights: the open lawn and two places among buildings, each with
     walkable hunter starts 170-200 m away."""
@@ -620,16 +650,15 @@ def scenarios(folder):
         check(f"holds range, {name}", ok, f"mean distance over the last 8 s: base {tail(b):.0f} m, cand {tail(c):.0f} m"
               f" (want {want:.0f} +-15); cand modes {modes(c)}")
 
-    # 2. a spot with a line of fire
+    # 2. a foe behind cover: only a target (a line of fire) is fought, so no step toward a line
     o2, foe2, good = fire_spot()
     setup = [hunter(5, foe2, mode="hold", shoots=False, listed=True)]
     b, c = pair(folder, "line of fire", labels, o2, fresh(setup), seconds=0.1, move_us=False, damage_hunters=False)
     mv = c["rows"][0]["move"]
-    target = (o2[0] + 6 * mv[0], o2[1] + 6 * mv[1])
-    ok = math.hypot(*mv) > 0.9 and shot_clear(target, foe2) and not shot_clear(o2, foe2)
-    check("prefers a spot with a line of fire", ok,
+    ok = math.hypot(*mv) < 1e-9 and c["rows"][0]["mode"] != "fight" and not shot_clear(o2, foe2)
+    check("no fight move toward a foe with no line of fire", ok,
           f"from ({o2[0]:.0f}, {o2[1]:.0f}) foe {math.dist(o2, foe2):.0f} m behind cover, {len(good)} ring points"
-          f" have a line; cand moves {[round(v, 2) for v in mv]} -> line {shot_clear(target, foe2)};"
+          f" have a line; cand mode {c['rows'][0]['mode']}, moves {[round(v, 2) for v in mv]};"
           f" base moves {[round(v, 2) for v in b['rows'][0]['move']]}")
 
     # 3. a spot a second enemy cannot see
@@ -686,6 +715,22 @@ def scenarios(folder):
     check("at 43% HP a cube 30 m away only pulls until it is within 22.8 m", ok,
           f"{len(early)} fight decisions beyond 22.8 m, grabs from {max(grab_at, default='-')} m;"
           f" collected base {b['collected']}, cand {c['collected']}")
+    # a cube we cannot reach (on a low roof, no walkable cell within 3.5 m) is not grabbed
+    o5, roof, foe5 = roof_cube_spot()
+    setup5 = [hunter(5, foe5, mode="hold", shoots=False, listed=True)]
+    b, c = pair(folder, "roof cube", labels, o5, fresh(setup5), seconds=10.0, cubes=[roof], damage_hunters=False)
+    ok = modes(c).get("grab", 0) == 0 and modes(c).get("fight", 0) > 0
+    check("no grab of a cube on a low roof with no walkable cell within 3.5 m", ok,
+          f"cube {math.dist(o5, roof[:2]):.0f} m away, {roof[2] - et.ground(*o5):.1f} m above us; cand modes {modes(c)},"
+          f" ends {math.dist(c['end'], roof[:2]):.0f} m from it")
+    # a cube we get no closer to (our mech cannot move) is given up after 3 s of grabbing
+    b, c = pair(folder, "stalled grab", labels, origin, fresh(setup), seconds=10.0, cubes=[point(origin, bearing + 180, 25)],
+                move_us=False, damage_hunters=False)
+    grabs = [row["t"] for row in c["rows"] if row["mode"] == "grab"]
+    later = [row["mode"] for row in c["rows"] if grabs and row["t"] > max(grabs)]
+    ok = grabs and max(grabs) < T0 + 8.0 and "fight" in later and "grab" not in later
+    check("a grab that gets no closer gives the cube up (3 s of grabbing, then 30 s banned)", ok,
+          f"{len(grabs)} grab decisions, the last at t={max(grabs, default=0):.1f}; then {sorted(set(map(str, later)))}")
 
     # 6. finish mode closes to 20 m
     foe = point(origin, bearing, 60)
@@ -703,15 +748,18 @@ def scenarios(folder):
             hunter(6, ms[1], mode="hold", shoots=False, listed=True, aim_off=math.pi / 2, leave_at=T0 + 1.0)]
     b, c = pair(folder, "lose pulse", labels, o7, fresh(setup), seconds=4.0, hp0=700.0, damage_hunters=False)
     retreating = [row["t"] for row in c["rows"] if row["mode"] in ("cover", "cornered", "flee")]
-    fighting = [row["t"] for row in c["rows"] if row["mode"] == "fight"]
+    after = [row for row in c["rows"] if retreating and row["t"] > max(retreating) + 1e-9]
     last_losing = T0 + 0.9
     want_end = round(last_losing + 1.4, 1)
+    # Once the pulse ends we stand hidden in the cover it found, so the foe is no target and the
+    # next decision is the camp (the fight resumes when the foe has a line of fire again).
     ok = (retreating and min(retreating) == T0 and round(max(retreating), 1) == want_end
-          and fighting and round(min(fighting), 1) == round(want_end + 0.1, 1)
+          and after and round(after[0]["t"], 1) == round(want_end + 0.1, 1)
+          and after[0]["mode"] not in ("cover", "cornered", "flee")
           and len(retreating) == round((want_end - T0) / 0.1) + 1)
     check("LoseRule pulse lasts 1.5 s after the last losing decision", ok,
           f"last losing t={last_losing:.1f}; retreat decisions t={min(retreating, default=0):.1f}..{max(retreating, default=0):.1f}"
-          f" ({len(retreating)}), fight from t={min(fighting, default=0):.1f}")
+          f" ({len(retreating)}), then '{after[0]['mode'] if after else '-'}' from t={after[0]['t'] if after else 0:.1f}")
     # finishing and late cancel the retreat movement (three mechs keep `losing` set)
     three = [hunter(5, ms[0], mode="hold", shoots=False, listed=True),
              hunter(6, ms[1], mode="hold", shoots=False, listed=True, aim_off=math.pi / 2),

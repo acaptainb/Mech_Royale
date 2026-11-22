@@ -3,7 +3,9 @@
 Practice mode (practice.py: after 20 s, while every death so far is one of our kills) hands the
 fight to the practice design: squad_fire.py decides what to face and shoot, how each trigger is
 pulled, the weapon wishes and the upgrade order; squad_move.py decides where to stand in a fight.
-Outside practice mode every decision is farm-power's.
+In practice mode the supply-drop and relocate objectives are skipped, and the pickup detour
+keeps going through damage and nearby mechs (loot.py). Outside practice mode every decision is
+farm-power's.
 """
 import math
 
@@ -22,14 +24,15 @@ from targeting import Engagement
 
 
 class Bot(FirstRun):
-    name = "zone-runner-squad-sticky"
+    name = "zone-runner-squad-sticky-fixed"
 
     def __init__(self, hello):
         super().__init__(hello)
         self.nav = Navigator()
         self.objectives = Objectives()
-        self.loot = PickupDetour(hello)
         self.engagement = Engagement(hello, Cover())
+        # The cover raster lets the practice-mode pickup memory tell when a pickup should be in view.
+        self.loot = PickupDetour(hello, self.engagement.cover)
         self.dodge = Dodge(hello, self.nav)
         self.shell_dodge = ShellDodge(hello, self.nav, self.engagement.cover)
         self.farm = CubeFarm(hello)
@@ -47,7 +50,8 @@ class Bot(FirstRun):
         self.squad_move.remember(obs)
         me, zone = obs["self"], obs["zone"]
         x, y, z = me["pos"]
-        goal = self.objectives.choose(obs, self.nav)
+        # Practice mode skips the supply-drop and relocate objectives (objectives.py).
+        goal = self.objectives.choose(obs, self.nav, practice=squad)
         mode = self.objectives.mode
         waypoint = self.nav.waypoint(me["pos"], goal)
         # Zone return, supply drops and relocation keep priority: a pickup is only
@@ -149,10 +153,11 @@ class Bot(FirstRun):
     def squad_fight_move(self, obs, action, plan, urgent):
         """Practice mode, before the dodges: unless the zone return is urgent, the LoseRule retreat
         (unless finishing or late), else the fight move with the mid-fight cube grab against the
-        target (or the nearest engaged mech while no target has a line of fire), then the laser
-        sidestep; otherwise the parent's move stands."""
+        target (engaged, with a line of fire, within 240 m; an engaged mech without one is only
+        faced, never walked to), then the laser sidestep; otherwise the parent's move stands
+        (the zone, the laser-first pickup detour, the cube farm)."""
         fighter = self.squad_move
-        fighter.assess(obs, plan["target"] if plan["target"] is not None else plan["nearest"])
+        fighter.assess(obs, plan["target"])
         if urgent:
             return
         step = fighter.plan(obs, zone_goal(obs["self"]["pos"], obs["zone"]))

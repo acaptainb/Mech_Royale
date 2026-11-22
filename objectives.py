@@ -9,7 +9,9 @@ class Objectives:
         self.refuge = None
         self.mode = "zone"
 
-    def choose(self, obs, nav):
+    def choose(self, obs, nav, practice=False):
+        """The point to walk toward. practice=True (practice mode) skips the supply-drop and
+        relocate objectives: only the zone return and the plain zone objective remain."""
         me, zone, now = obs["self"], obs["zone"], obs["t"]
         pos = me["pos"][:2]
         center = zone["next_center"]
@@ -31,7 +33,7 @@ class Objectives:
             return center
 
         # A destination safely inside both circles stays safe as the zone interpolates.
-        if me["hp"] < 0.80 * me["max_hp"]:
+        if not practice and me["hp"] < 0.80 * me["max_hp"]:
             best, best_time = None, math.inf
             for drop in obs["drops"]:
                 at = drop["pos"][:2]
@@ -49,7 +51,7 @@ class Objectives:
                 self.mode = "drop"
                 return best
 
-        if now < self.relocate_until and safe(pos):
+        if not practice and now < self.relocate_until and safe(pos):
             if self.refuge is None or not safe(self.refuge) or math.dist(pos,self.refuge) < 2:
                 options = []
                 for i in range(12):

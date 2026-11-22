@@ -14,6 +14,10 @@
 3. Fuzz: thousands of random, well-formed observations in process, before and after 20 s, with
    deaths with and without our kill events: no exception, a JSON action, finite move and aim,
    two boolean triggers, and nothing swallowed by squad_move.py's guard.
+4. The practice-mode fixes through the real entrypoint, read from the move and the aim (the
+   move part names itself in a debug text only when it moves us): no fight move toward an
+   engaged mech without a line of fire or beyond 240 m (it is only faced); the laser detour
+   held through a drone hit and while the laser is out of view; no supply-drop or relocate move.
 Standard library only.
 """
 import copy
@@ -415,6 +419,118 @@ def fuzz(matches=6, length=1000, seed=31):
         print("   first:", errors[0])
 
 
+# --- 4. the practice-mode fixes --------------------------------------------------------------------
+
+def pframe(k, mechs=(), hp=1400.0, pickups=(), zone=None, origin=HOME, events=(), drops=()):
+    """A practice-mode decision (t = 30 s + 0.1 s per decision), on the open lawn unless `origin`
+    says otherwise (the zone is centred there unless `zone` moves it)."""
+    obs = et.frame(k, mechs, events, hp=hp, pickups=pickups, origin=origin)
+    obs["t"] = round(30.0 + 0.1 * k, 2)
+    obs["tick"] = 600 + 2 * k
+    obs["alive"] = 16
+    obs["drops"] = copy.deepcopy(list(drops))
+    obs["zone"].update(shrink_start=1000.0, shrink_end=1050.0)
+    if zone:
+        obs["zone"].update(zone)
+    return obs
+
+
+def squad_text(action):
+    """The move part's debug text ("squad fight", ...), or None when it did not move us."""
+    for item in ((action.get("debug") or {}).get("text") or ()):
+        if item.get("text", "").startswith("squad"):
+            return item["text"]
+    return None
+
+
+def walked(make, n, start=HOME, frozen=False):
+    """Decisions make(k, here) through the real entrypoint. Our mech walks where the bot steers it
+    (walk speed, walls from the ground grid) unless frozen, and the torso is where the bot last
+    aimed it. Returns [(obs, action)] and the final position."""
+    bot = BotProcess(ROOT, et.HELLO)
+    rows, last, here, vel = [], {}, tuple(start), [0.0, 0.0, 0.0]
+    for k in range(n):
+        obs = make(k, here)
+        if last.get("aim"):
+            obs["self"]["aim"] = list(last["aim"])
+        obs["self"]["vel"] = list(vel)
+        action = bot.act(obs)
+        rows.append((obs, action))
+        last = action
+        move = action.get("move") or [0.0, 0.0]
+        length = math.hypot(*move)
+        if length > 1:
+            move = [move[0] / length, move[1] / length]
+        step = MECH["walk_speed"] * 0.1
+        nxt = (here[0] + move[0] * step, here[1] + move[1] * step)
+        vel = [0.0, 0.0, 0.0]
+        if not frozen and dt.walkable(nxt):
+            here = nxt
+            vel = [move[0] * MECH["walk_speed"], move[1] * MECH["walk_speed"], 0.0]
+    bot.close()
+    return rows, here
+
+
+def fixes():
+    print("\n4. the practice-mode fixes (t = 30 s, through the real entrypoint)")
+    wrap = lambda a: (a + math.pi) % math.tau - math.pi
+
+    def still(rows):
+        return all(math.hypot(*(action.get("move") or [0.0, 0.0])) < 1e-9 and squad_text(action) is None
+                   for _, action in rows)
+
+    def faces(rows, other):
+        here = rows[0][0]["self"]["pos"]
+        yaw = math.atan2(other["pos"][1] - here[1], other["pos"][0] - here[0])
+        return all(abs(wrap(action["aim"][0] - yaw)) < 0.01 for _, action in rows[1:])
+
+    def texts(rows):
+        seen = {}
+        for _, action in rows:
+            key = squad_text(action) or "-"
+            seen[key] = seen.get(key, 0) + 1
+        return seen
+
+    def case(text, ok, detail):
+        print(f"   {text}: {detail}  {check(ok, 'fixes: ' + text)}")
+    # Only the target is fought: engaged, with a line of fire, within 240 m.
+    origin, cover_bearing, cover_distance, _ = et.COVER_SPOT
+    hidden = mech(9, origin, cover_bearing, cover_distance, aim_at_us=True)
+    rows, _ = walked(lambda k, here: pframe(k, [hidden], origin=origin), 10, start=origin, frozen=True)
+    case(f"an engaged mech with no line of fire ({cover_distance} m, behind cover, aiming at us) is faced,"
+         f" not walked to", still(rows) and faces(rows, hidden), f"move part {texts(rows)}")
+    far = mech(5, HOME, OPEN, 262)
+    rows, _ = walked(lambda k, here: pframe(k, [far], events=[et.damaged(5, OPEN, weapon="laser")] if k == 0 else []),
+                     10, frozen=True)
+    case("a mech that hit us from 262 m (beyond 240 m) is faced, not walked to", still(rows) and faces(rows, far),
+         f"move part {texts(rows)}")
+    # The laser detour holds through damage and while the laser is out of view.
+    calm = dict(center=list(HOME), radius=400.0, next_center=list(HOME), next_radius=250.0)
+    laser_far = dict(id=8003, kind="laser", pos=at(HOME, OPEN, 110))
+    drone_hit = dict(type="damaged", amount=25, weapon="npc", by=104, bearing=1.0)
+    rows, end = walked(lambda k, here: pframe(k, pickups=[laser_far], origin=here, zone=calm,
+                                             hp=1400.0 if k < 10 else 1375.0,
+                                             events=[drone_hit] if k == 10 else []), 40)
+    left = math.dist(end, laser_far["pos"][:2])
+    case("the laser detour holds through a drone hit at 1 s (laser 110 m away)", left < 70,
+         f"{left:.0f} m left after 4 s")
+    laser_unseen = dict(id=8004, kind="laser", pos=at(HOME, OPEN, 200))
+    rows, end = walked(lambda k, here: pframe(k, pickups=[laser_unseen] if k < 3 else [], origin=here, zone=calm), 90)
+    left = math.dist(end, laser_unseen["pos"][:2])
+    case("a laser 200 m away listed on the first 3 decisions only is still followed", left < 110,
+         f"{left:.0f} m left after 9 s")
+    # No supply drop or relocate hop (we stand at the zone centre, so the zone objective holds still).
+    drop = dict(id=20000, pos=at(HOME, OPEN, 30), radius=8, lands_in=0.0, capture_s=4, progress=0, holder=None)
+    rows, _ = walked(lambda k, here: pframe(k, hp=840.0, drops=[drop]), 10, frozen=True)
+    moves = sorted({tuple(round(v, 2) for v in (a.get("move") or [0, 0])) for _, a in rows})
+    case("no supply-drop move (HP 60%, a drop on the ground 30 m away)", still(rows), f"moves {moves}")
+    rows, _ = walked(lambda k, here: pframe(k, hp=1400.0 if k < 2 else 1355.0,
+                                           events=[et.damaged(104, OPEN, weapon="npc")] if k == 2 else []),
+                     10, frozen=True)
+    moves = sorted({tuple(round(v, 2) for v in (a.get("move") or [0, 0])) for _, a in rows})
+    case("no relocate hop after damage (a drone hit at 0.2 s)", still(rows), f"moves {moves}")
+
+
 def main():
     revision = sys.argv[sys.argv.index("--baseline") + 1] if "--baseline" in sys.argv else BASELINE
     folder = export(revision)
@@ -422,6 +538,7 @@ def main():
     mode_switch(folder)
     timing()
     fuzz()
+    fixes()
     if FAILURES:
         print("\nFAIL:", "; ".join(FAILURES))
         sys.exit(1)

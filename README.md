@@ -118,3 +118,7 @@ Movement, highest first: the bullet and shell dodges; the parent's urgent zone r
 ## squad-sticky
 
 Built on squad-fire-move (`8805ed6`). Practice mode stays on until three mechs have died to something other than us, so a single house bot lost to a drone or the zone no longer switches the practice design off. Run `py tools/practice_trial.py`.
+
+## squad-sticky-fixed
+
+squad-sticky (`65a5a5c`) with six practice-mode corrections: the move part fights only the target (an engaged mech with a line of fire within 240 m; others are only faced); the pickup pursuit keeps going through damage and nearby mechs and follows remembered pickups; the mid-fight cube grab only goes for cubes we can reach and gives one up after 3 s without progress; no supply-drop pursuit or relocate hop; a held mortar never fires; the torso turns onto a lethal laser shot one decision earlier. Run `py tools/squad_fire_trial.py`, `py tools/squad_move_trial.py` and `py tools/practice_trial.py` (its section 4 checks the fixes).

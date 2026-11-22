@@ -4,11 +4,15 @@ In practice matches the 15 house mechs hunt us together, and only our kills befo
 count. While practice mode is on (practice.py: from 20 s of match time, while every death so far
 is one of our kills) bot.py asks this part for the move whenever the zone return is not urgent:
 
-- FightMove: while there is a mech to fight (squad_fire.py's target, or the nearest engaged mech
-  when no target has a line of fire), score staying put and 16 walkable points 6 m away (range to
-  the foe, a line of fire when we can shoot, not being seen by the other hunters, the zone,
-  nearby cubes, walls, a strafe that flips at random) and walk to the best. A cube within 40 m
-  (22.8 m when hurt) is collected instead.
+- FightMove: while there is a mech to fight (squad_fire.py's target: engaged, with a line of
+  fire, within 240 m; an engaged mech without one is only faced, never walked to), score staying
+  put and 16 walkable points 6 m away (range to the foe, a line of fire when we can shoot, not
+  being seen by the other hunters, the zone, nearby cubes, walls, a strafe that flips at random)
+  and walk to the best. A cube within 40 m (22.8 m when hurt) is collected instead, when we can
+  reach it: it lies on the ground (at most 3.2 m above the terrain, so not on a roof or deck)
+  with a walkable grid cell within 12 m, or a walkable cell lies within 3.5 m of it. A cube we
+  get no closer to over 3 s of grabbing is left alone for 30 s. Only such cubes pull the fight
+  move's points as well.
 - LoseRule: outnumbered and hurt, or losing the HP race, starts a retreat that lasts 1.5 s
   after the last losing decision, unless the kill is close or the match is late.
 - CoverSearch: during a retreat, walk to the nearest grid cell hidden from up to 4 hunters;
@@ -483,6 +487,14 @@ class SquadMove:
     GRAB_M = 40.0
     GRAB_HURT_M = 22.8     # when our HP is at most GRAB_HURT_FRAC
     GRAB_HURT_FRAC = 0.5
+    GRAB_FREE_M = 3.5      # a walkable grid cell this close to a cube puts it within reach
+    CUBE_ELEVATED_M = 3.2  # otherwise the cube must lie at most this far above the terrain ...
+    CUBE_REACH_M = 12.0    # ... with a walkable grid cell this close
+    GRAB_PROGRESS_M = 1.0  # getting this much closer than before counts as progress
+    GRAB_STALL_S = 3.0     # grabbing this long without progress gives the cube up ...
+    GRAB_BAN_S = 30.0      # ... for this long
+    GRAB_RESET_S = 2.0     # a grab paused longer than this starts its progress count afresh
+    GRAB_STEP_S = 0.25     # at most this much counts per decision
     CROWD_M = 150.0
     FINISH_FOE_FRAC = 0.38
     FINISH_OWN_FRAC = 0.42
@@ -520,6 +532,11 @@ class SquadMove:
         self.cover = CoverSearch(self.nav, self.sight)
         self.seen = {}                     # id -> (time last listed, mech)
         self.cubes = {}                    # id -> (time last seen, pos)
+        self.cube_check = self.on_ground   # (id, pos) -> True for a cube we can walk up to
+        self.cube_ban = {}                 # cube id -> time the grab may try it again
+        self.grab = None                   # the cube being grabbed: id, best, stalled, last
+        self.free_near = {}                # rounded cube position -> walkable cell within GRAB_FREE_M
+        self.ground_near = {}              # rounded cube position -> on_ground()
         self.foe = None                    # the listed mech fought this decision, or None
         self.mode = None                   # what set the move this decision, for tests
         self.retreat = False
@@ -545,13 +562,80 @@ class SquadMove:
         self.cubes = {key: v for key, v in self.cubes.items()
                       if key in listed or (now - v[0] <= self.CUBE_MEMORY_S and flat(v[1], pos) > self.CUBE_GONE_M)}
 
-    def nearest_cube(self, pos, radius):
+    def nearest_cube(self, pos, radius, now):
+        """(id, pos) of the nearest remembered cube within `radius` and CUBE_HEIGHT_M that we can
+        reach and is not banned, or None."""
         best = None
-        for _, at in self.cubes.values():
+        for key, (_, at) in self.cubes.items():
             d = flat(at, pos)
             if d <= radius and abs(at[2] - pos[2]) <= self.CUBE_HEIGHT_M and (best is None or d < best[0]):
-                best = (d, at)
-        return None if best is None else best[1]
+                if self.cube_ban.get(key, -math.inf) > now or not self.within_reach(key, at):
+                    continue
+                best = (d, key, at)
+        return None if best is None else best[1:]
+
+    def on_ground(self, key, at):
+        """The cube lies at most CUBE_ELEVATED_M above the terrain (not on a roof or deck) with a
+        walkable grid cell within CUBE_REACH_M."""
+        entry = (round(at[0], 1), round(at[1], 1), round(at[2], 1))
+        if entry not in self.ground_near:
+            if len(self.ground_near) > 4000:
+                self.ground_near.clear()
+            ok = at[2] - self.sight.floor(at[0], at[1]) <= self.CUBE_ELEVATED_M
+            if ok:
+                nav = self.nav
+                i0, j0 = round((at[0] - nav.ox) / nav.step), round((at[1] - nav.oy) / nav.step)
+                rings = int(self.CUBE_REACH_M / nav.step) + 1
+                ok = any(0 <= i < nav.width and 0 <= j < nav.height and nav.free[j * nav.width + i]
+                         and math.hypot(nav.ox + i * nav.step - at[0], nav.oy + j * nav.step - at[1]) <= self.CUBE_REACH_M
+                         for j in range(j0 - rings, j0 + rings + 1) for i in range(i0 - rings, i0 + rings + 1))
+            self.ground_near[entry] = ok
+        return self.ground_near[entry]
+
+    def within_reach(self, key, at):
+        """The cube lies on the ground near a walkable cell (cube_check), or a walkable cell lies
+        within GRAB_FREE_M."""
+        if self.cube_check is not None and self.cube_check(key, at):
+            return True
+        entry = (round(at[0], 1), round(at[1], 1))
+        if entry not in self.free_near:
+            if len(self.free_near) > 4000:
+                self.free_near.clear()
+            nav = self.nav
+            i0, j0 = round((at[0] - nav.ox) / nav.step), round((at[1] - nav.oy) / nav.step)
+            found = False
+            for j in range(j0 - 1, j0 + 2):
+                for i in range(i0 - 1, i0 + 2):
+                    if (0 <= i < nav.width and 0 <= j < nav.height and nav.free[j * nav.width + i]
+                            and math.hypot(nav.ox + i * nav.step - at[0], nav.oy + j * nav.step - at[1]) <= self.GRAB_FREE_M):
+                        found = True
+            self.free_near[entry] = found
+        return self.free_near[entry]
+
+    def grab_cube(self, now, pos, radius):
+        """The cube for the mid-fight grab, or None. Grabbing one for GRAB_STALL_S without getting
+        GRAB_PROGRESS_M closer than before bans it for GRAB_BAN_S."""
+        found = self.nearest_cube(pos, radius, now)
+        if found is None:
+            return None
+        key, at = found
+        d = flat(at, pos)
+        g = self.grab
+        if g is None or g["id"] != key or now - g["last"] > self.GRAB_RESET_S + 1e-9:
+            self.grab = dict(id=key, best=d, stalled=0.0, last=now)
+            return at
+        if d < g["best"] - self.GRAB_PROGRESS_M:
+            g["best"], g["stalled"] = d, 0.0
+        else:
+            g["stalled"] += min(self.GRAB_STEP_S, max(0.0, now - g["last"]))
+        g["last"] = now
+        if g["stalled"] >= self.GRAB_STALL_S - 1e-9:
+            self.cube_ban[key] = now + self.GRAB_BAN_S
+            self.cube_ban = {k: t for k, t in self.cube_ban.items() if t > now}
+            self.grab = None
+            self.count("grab given up")
+            return None
+        return at
 
     def eye(self, other):
         x, y, z = other["pos"]
@@ -687,7 +771,7 @@ class SquadMove:
                 step = dict(mode="flee", move=self.travel(pos, goal, 0.8), boost=False)
         elif foe is not None:
             hurt = own <= self.GRAB_HURT_FRAC
-            cube = self.nearest_cube(pos, self.GRAB_HURT_M if hurt else self.GRAB_M)
+            cube = self.grab_cube(obs["t"], pos, self.GRAB_HURT_M if hurt else self.GRAB_M)
             if cube is not None:
                 step = dict(mode="grab", move=self.travel(pos, cube, 0.3), boost=False)
             else:
@@ -732,5 +816,5 @@ class SquadMove:
                          if key != foe.get("id")), key=lambda t: (t[0], t[1]))
         others = [(self.eye(m), (m["pos"][0], m["pos"][1])) for d, _, m in others[:FightMove.MAX_OTHERS]
                   if d <= FightMove.SEEN_RANGE_M + FightMove.RING_M]
-        cube = self.nearest_cube(pos, self.CUBE_PULL_M)
-        return self.fight.choose(obs, foe, self.centre(foe), others, w, pref, cube)
+        cube = self.nearest_cube(pos, self.CUBE_PULL_M, obs["t"])
+        return self.fight.choose(obs, foe, self.centre(foe), others, w, pref, cube and cube[1])
