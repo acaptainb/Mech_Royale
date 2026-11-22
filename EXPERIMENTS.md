@@ -26,6 +26,7 @@ Practice seeds are fixed for the whole event and the bot is deterministic. A ver
 | duel-weave | `duel-weave` | not a candidate: failed its pre-submission gate | `3b290b0` (2.63) | not submitted | n/a |
 | no-mortar | `no-mortar` | `df1be152ba1bee40a368979ccb01eef1b7f9b347` | `3b290b0` (2.63) | pending | pending |
 | lead-shots | `lead-shots` | this commit (tag `lead-shots-candidate`) | `3b290b0` (2.63) | pending | pending |
+| chase-wounded | `chase-wounded` | this commit (tag `chase-wounded-candidate`) | `4d8a32d` (lead-shots, 2.90) | pending | pending |
 
 ## Log
 
@@ -44,6 +45,7 @@ Practice seeds are fixed for the whole event and the bot is deterministic. A ver
 | duel-strafe | `3b290b0` | this commit (tag `duel-strafe-candidate`) | walking sideways to the only, clearly visible opponent during ordinary zone movement helps survive the exchange | eligible on 115 of 300 recording decisions; the move changed on all 115 | hit rate under a leading shooter -17% and -11%, but routes stall while the opponent stays in view (see below) | 2.46 (-0.17) | revert: it fired at about 150 m, mostly against a laser user (hitscan, not dodgeable by walking), and replaced progress toward the zone |
 | duel-weave | `3b290b0` | not a candidate | angling the waypoint 20 degrees, alternating sides, in a clear duel keeps progress and cuts hits | eligible on 115 of 300 recording decisions; the move changed on all 115 | 16 held-out routes: 16/16 finished, but 570 hits vs 554 for 2.63 and safety 0.8 s later | not submitted | gate not passed: more hits than 2.63 |
 | lead-shots | `3b290b0` | this commit (tag `lead-shots-candidate`) | aiming the gun where a moving opponent will be when the bullet arrives lands more hits, so we kill more of the house bots that hunt us before we die | every decision with a moving opponent: aim led on 169 of 300 recording decisions | hits 56 to 109 of 130 shots (43% to 84%) in a closed-loop gunfight; never fewer; laser still released onto a moving target; only the aim changes | pending | pending your score |
+| chase-wounded | `4d8a32d` | this commit (tag `chase-wounded-candidate`) | walking toward a nearly dead opponent during ordinary zone movement keeps it in sight and in range, so we finish more kills before the house bots finish us | 0 on the recording (the lowest listed opponent is at 73% HP); 6 chases in the 6 eligible closed-loop cases, at most 4 s each | kills within 10 s: 5 to 7 of 11 closed-loop cases, never later; 10 controls identical; 0 zone exits; movement identical on every scripted engagement decision | pending | pending your score |
 | no-mortar | `3b290b0` | `df1be15` (tag `no-mortar-candidate`) | never carrying a mortar helps: we cannot aim it, and holding one makes every laser hit on us cook off for +60% | whenever v5 would detour for or walk over a mortar (a third of floor weapons); 0 on the recording (no mortar within 70 m) | never carries a mortar in any layout; takes a laser instead when one is near; control identical | pending | pending your score |
 
 ## v6: selective engagement
@@ -236,6 +238,39 @@ Evidence (`py tools/lead_trial.py`: a closed-loop gunfight against `3b290b0`, bo
 - **Recording:** the aim is led on all 169 decisions with an opponent listed, and no command other than aim differs. The first led decision is at t=4.9, 140 m away: yaw +0.850 against +0.807.
 - **Narrowed checks:** the laser trial's recording control now compares fire commands, and the engagement held-out rule R3 also accepts a lead bearing, computed independently in the trial.
 - **Other checks:** the dodge trial, combo check, objective checks, route, pickup and target trials, the probe and `verify.py` all pass.
+
+## chase-wounded (on `4d8a32d`, lead-shots; parent score 2.90)
+
+**Why:** kills before we die are placement points, and lead-shots (+0.27) showed the gun already lands most shots on a clear opponent. What remains is an opponent we have nearly killed walking out of our 200 m vision or 230 m gun range while we follow the zone route the other way. v6 also holds fire at a passive opponent crossing at 80-120 m (unled shots would miss), so it gets away at full health.
+
+**The change (movement only, `chase.py`):** while all of these hold, the normal move steers toward v6's selected opponent:
+
+- ordinary zone movement (the plain zone objective: no return, supply drop, relocation, pickup detour or obstacle recovery), inside the zone, the return not urgent;
+- the selected opponent is a game mech, the only one listed, below **35%** of its max HP, with a clear line, farther than **35 m**;
+- our own HP is at least **40%**;
+- walking to it still leaves time to get safe before the shrink (arrival + walk to the next circle + 5 s + 8 s margin before `shrink_start`), and it is at least 3 m inside the current circle;
+- at most **4 s** per opponent, counted from its first chase decision.
+
+A separate planner routes toward a point up to 30 m along the line to the opponent, so the zone route is untouched; a decision whose route is not ready keeps the ordinary move. Aim and fire stay with v6 and lead-shots. The engagement decision is now computed once, before movement, and reused for aim and fire (it reads only the observation). The v8 dodge runs after the chase and keeps the final say.
+
+Evidence (`py tools/chase_trial.py`: both builds as real bot processes; a closed-loop world where our movement, torso, gun and the opponent's HP follow the bot's commands; 45 HP per hit, no rear bonus; the opponent does not shoot back):
+
+| Closed loop, 10 s, opponent passive | Kill at s, base / chase | Closest m, base / chase |
+| --- | --- | --- |
+| wounded (30%) retreating, 120 m | 3.1 / 3.0 | 120 / 120 |
+| wounded retreating, 180 m | none (leaves vision at 200 m) / 3.5 | 180 / 180 |
+| wounded crossing toward our route, 120 m | none / none | 120 / 83 |
+| wounded crossing away, 120 m | none / none | 120 / 84 |
+| wounded crossing, 80 m | none / 4.8 | 80 / 50 |
+| wounded retreating out of a 150 m zone | 2.8 / 2.7 (chase stops at the edge) | 120 / 120 |
+| healthy retreating, healthy crossing, wounded + second mech, urgent zone return, own HP 35% | identical while the condition holds | identical |
+| **kills within 10 s** | **5** | **7** |
+
+- **Scripted decisions:** a lone wounded mech at 120 m turns the move toward it with aim, fire and boost unchanged; identical to the baseline for a healthy mech, 36% HP, 30 m, behind cover, a wounded drone that hit us, a second mech listed, own HP 35%, outside the zone, the opponent outside the zone, and a shrink in 12 s.
+- **Conditions:** an in-process copy of the candidate checks every one of its 212 chase decisions against the rule (one wounded mech, clear, beyond 35 m, inside the circle, at most 4 s); no violation. Outcomes: 6 chases started; ended by a kill 2, the time limit 3, the zone edge 1.
+- **Recording:** the lowest listed opponent HP is 73%, so the rule never fires: 0 of 300 decisions differ from `4d8a32d`.
+- **Narrowed checks:** the engagement trial now also excludes decisions where the chase owns the move (none occur: every scripted mech is at full HP) and reports the count.
+- **Other checks:** objective checks, route, pickup and target trials, the engagement trial and its held-out rules, the dodge trial, combo check, lead trial against `3b290b0`, entrypoint trial against `4588e6b`, the probe and `verify.py` all pass.
 
 ## Next experiment: laser trigger discipline (#3)
 

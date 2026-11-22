@@ -4,6 +4,7 @@ import math
 import mechfight as mf
 from cover import Cover
 from dodge import Dodge
+from chase import WoundedChase
 from first_run import Bot as FirstRun
 from loot import PickupDetour
 from navigation import Navigator
@@ -12,7 +13,7 @@ from targeting import Engagement
 
 
 class Bot(FirstRun):
-    name = "zone-runner-lead-shots"
+    name = "zone-runner-chase-wounded"
 
     def __init__(self, hello):
         super().__init__(hello)
@@ -21,6 +22,7 @@ class Bot(FirstRun):
         self.loot = PickupDetour(hello)
         self.engagement = Engagement(hello, Cover())
         self.dodge = Dodge(hello, self.nav)
+        self.chase = WoundedChase(hello)
 
     def act(self, obs):
         action = super().act(obs)
@@ -48,6 +50,9 @@ class Bot(FirstRun):
                         and self.nav.clear_segment(me["pos"], at)):
                     waypoint = at[:2]
                     break
+        # v6's engagement decision, computed once here so movement can use its selected
+        # opponent; the same decision drives aiming and firing below.
+        engage = self.engagement.decide(obs)
         dx, dy = waypoint[0]-x, waypoint[1]-y
         length = math.hypot(dx, dy)
         recovering = obs["t"] < self.detour_until
@@ -58,6 +63,10 @@ class Bot(FirstRun):
         walk_time = max(0,distance_to_safe) / max(1,me["stats"]["walk_speed"])
         late = distance_to_safe > 0 and obs["t"] + walk_time + 4 > zone["shrink_start"]
         action["boost"] = (late or not me["in_zone"]) and me["energy"] > 15
+        # chase-wounded: close in on the only, nearly dead opponent during ordinary zone
+        # movement. Runs before the dodge, which keeps the final say.
+        self.chase.steer(obs, action, engage, mode=mode,
+                         urgent=mode == "return" or late or not me["in_zone"], recovering=recovering)
         # v8: one brief sideways step when a visible bullet is on course to hit us,
         # never while the zone return is urgent.
         self.dodge.steer(obs, action, urgent=mode == "return" or late or not me["in_zone"])
@@ -79,7 +88,6 @@ class Bot(FirstRun):
                     action["reload"] = True
         # v6: opponent choice and the decision to shoot replace the inherited nearest-mech
         # rule. Movement, pickups and how the weapons are triggered are as in v5.
-        engage = self.engagement.decide(obs)
         # During a pickup detour v5 faces the pickup to keep it in view; only a listed
         # opponent overrides that, never the turn toward an unseen attacker.
         if engage["aim"] is not None and not (pickup is not None and engage["target"] is None):

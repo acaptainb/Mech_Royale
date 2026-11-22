@@ -479,9 +479,11 @@ def play(controller, frames):
         raw = list(action.get("fire") or [False, False])
         engagement = getattr(bot, "engagement", None)
         dodge = getattr(bot, "dodge", None)  # v8 onward: a sideways step may own the move
+        chase = getattr(bot, "chase", None)  # chase-wounded: closing on a wounded opponent owns the move
         rows.append(dict(t=obs["t"], target=identify(action, obs), fire=any(raw), fire_raw=raw,
                          aim=action.get("aim"), detour=bot.loot.target is not None,
                          dodging=bool(dodge and dodge.active),
+                         chasing=bool(chase and chase.active),
                          rest={key: action.get(key) for key in UNCHANGED},
                          reason=engagement.decision.get("reason") if engagement else None))
     return rows
@@ -497,13 +499,13 @@ def compare(frames):
         b["same_aim"] = (a["aim"] is not None and b["aim"] is not None
                          and all(abs(p - q) < 1e-9 for p, q in zip(a["aim"], b["aim"])))
         b["differs"] = a["target"] != b["target"] or a["fire_raw"] != b["fire_raw"] or not b["same_aim"]
-        # Movement may differ only while a later version's dodge owns the move.
-        b["moved_differently"] = a["rest"] != b["rest"] and not b["dodging"]
+        # Movement may differ only while a later version's dodge or wounded chase owns the move.
+        b["moved_differently"] = a["rest"] != b["rest"] and not b["dodging"] and not b["chasing"]
     return old, new
 
 
 def scenarios():
-    failures, total, differing, reasons, moved = [], 0, 0, {}, 0
+    failures, total, differing, reasons, moved, chased = [], 0, 0, {}, 0, 0
     print(f"{'scenario':40}{'decisions':>9}{'v5 fire':>8}{'v6 fire':>8}{'v5 sw':>6}{'v6 sw':>6}"
           f"{'differ':>7}  v6 expectation")
     for name, (build, check, expectation) in SCENARIOS.items():
@@ -511,6 +513,7 @@ def scenarios():
         old, new = compare(frames)
         moved_here = sum(row["moved_differently"] for row in new)
         moved += moved_here
+        chased += sum(row["chasing"] for row in new)
         ok = check(new) and not moved_here
         diff = sum(row["differs"] for row in new)
         total += len(frames)
@@ -522,7 +525,8 @@ def scenarios():
         if not ok:
             failures.append(name)
     print(f"\nv6 made a different aim or fire decision on {differing} of {total} scripted decisions;"
-          f" move, boost, jump, take, reload, pick or drop differed on {moved}.")
+          f" move, boost, jump, take, reload, pick or drop differed on {moved}"
+          f" (wounded-chase decisions excluded: {chased}).")
     print("v6 decision reasons across all scenarios:",
           ", ".join(f"{k} {v}" for k, v in sorted(reasons.items(), key=lambda kv: -kv[1])))
     return failures
@@ -540,7 +544,8 @@ def recording():
     print(f"\nrecording: {len(STREAM)} decisions, a mech listed in {len(listed)} (always the same one)")
     print(f"  fire decisions v5 {sum(r['fire'] for r in old)}  v6 {sum(r['fire'] for r in new)};"
           f"  decisions with a different fire command {diff_fire}, different aim {diff_aim},"
-          f" anything else different {moved} (dodge decisions excluded: {sum(r['dodging'] for r in new)})")
+          f" anything else different {moved} (dodge decisions excluded: {sum(r['dodging'] for r in new)},"
+          f" wounded-chase decisions excluded: {sum(r['chasing'] for r in new)})")
     print("  v6 reasons while the mech is listed:", ", ".join(f"{k} {v}" for k, v in sorted(reasons.items())))
     bot, worst, t0 = V6(HELLO), 0.0, time.perf_counter()
     for obs in STREAM:
