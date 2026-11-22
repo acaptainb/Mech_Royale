@@ -74,3 +74,7 @@ This branch is V8 (`4588e6b`, official 2.50) with V7's laser release (`f69d39c`,
 ## Combo A: V8 + V7 + V10 + V11
 
 The 2.63 build (`3b290b0`) plus V10's pickup tie-break (`7c3605f`) and V11's post-kill cube detour (`63b62ff`), each applied unchanged. Run `py tools/pickup_tiebreak_trial.py --baseline 3b290b0` and `py tools/kill_cube_trial.py --baseline 3b290b0` to compare against the 2.63 parent.
+
+## Combo B: combo A + V12
+
+Combo A (`f0a59c7`) plus V12's hold beside cover (`3bc1f47`). The hold runs before the dodge, so a bullet on course still moves a holding mech. Run `py tools/hold_trial.py --baseline f0a59c7` to compare against combo A.

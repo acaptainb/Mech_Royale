@@ -20,7 +20,8 @@ Practice seeds are fixed for the whole event and the bot is deterministic. A ver
 | v10 | `v10-pickup-tiebreak` | `7c3605fdcc0d7bf0c3c813258b3cb746093830b9` | `1a0ca39` | pending | pending |
 | v11 | `v11-kill-cube-detour` | `63b62ff5c20eec473719e2e87061d07a0a834380` | `1a0ca39` | pending | pending |
 | v12 | `v12-hold-near-cover` | `3bc1f4734b8a2c7aecda3b89a6f62f74d712cf46` | `1a0ca39` | pending | pending |
-| combo A: v8 + v7 + v10 + v11 | `combo-a` | this commit (tag `combo-a-candidate`) | `3b290b0` (v8 + v7) | pending | pending |
+| combo A: v8 + v7 + v10 + v11 | `combo-a` | `f0a59c7d1f94f9fab441fe4cdd6167aa07670219` | `3b290b0` (v8 + v7) | pending | pending |
+| combo B: combo A + v12 | `combo-b` | this commit (tag `combo-b-candidate`) | `f0a59c7` (combo A) | pending | pending |
 
 ## Log
 
@@ -38,7 +39,8 @@ Practice seeds are fixed for the whole event and the bot is deterministic. A ver
 | v10 | `1a0ca39` | `7c3605f` (tag `v10-candidate`) | on a near tie between two eligible pickups, preferring the one with a clear onward line to the next circle saves time | 1 crafted layout; 3 of 150 random two-pickup layouts (2%); 0 in 110 pickup-trial episodes; 0 on the recording | courtyard vs open: reaches safety 1.3 s sooner; faster pickup and shared doorway identical | pending | rarely fires; likely reproduces its parent's score |
 | v11 | `1a0ca39` | `63b62ff` (tag `v11-candidate`) | one short cube detour after a confirmed kill turns kills into HP | 3 of 7 crafted episodes; 0 on the recording (it has no kill events) | collects 3 cubes (HP 1568 vs 1400 at the next encounter) for a 3-5 s later arrival inside the zone; cancels on the decision a threat appears | pending | fires only after our kills |
 | v12 | `1a0ca39` | `3bc1f47` (tag `v12-candidate`) | holding still beside cover while comfortably safe and quiet cuts exposure | held in 11 of 20 random starts on each of two seeds; 0 on the recording | walks 22-28% less, 0 late arrivals, releases on the same decision anything changes | pending | the one new rule likely to fire in practice; effect uncertain |
-| combo A | `3b290b0` | this commit (tag `combo-a-candidate`) | v10 and v11 add to v8 + v7 without harm | as in v10 and v11 | each trial against `3b290b0` reproduces its standalone result; laser, dodge and interaction checks unchanged | pending | pending your score |
+| combo B | `f0a59c7` | this commit (tag `combo-b-candidate`) | holding still beside cover adds to everything that scored well | as in v12: holds in 11 of 20 random starts per seed; 0 on the recording | v12's trial against combo A reproduces v12's own numbers (22-28% less walking, 0 late arrivals, same-decision release); a hold gives way to a dodge on the decision a bullet is on course | pending | pending your score |
+| combo A | `3b290b0` | `f0a59c7` (tag `combo-a-candidate`) | v10 and v11 add to v8 + v7 without harm | as in v10 and v11 | each trial against `3b290b0` reproduces its standalone result; laser, dodge and interaction checks unchanged | pending | pending your score |
 
 ## v6: selective engagement
 
@@ -126,6 +128,21 @@ Evidence (all as real bot processes):
 | `py tools/combo_check.py` | moves as v8 and fires as v7 in all three cases |
 
 V10 and V11 rarely activate: twice in a combined 260 crafted and random cases, and never on the recording. Combo A will most likely score exactly 2.63 unless our bot gets kills or meets near-tied pickups in practice.
+
+## Combo B: combo A + v12 (on `f0a59c7`)
+
+V12's commit (`3bc1f47`) applied on combo A. V12 was written against the old cube block, so in the merged `bot.py` the hold is told about a cube chase through v11's `nearest_cube` result. The hold runs before the dodge, so a bullet on course still moves a holding mech.
+
+Evidence (all as real bot processes):
+
+| Check | Result |
+| --- | --- |
+| `py tools/hold_trial.py --baseline f0a59c7` (against combo A) | identical to v12 against its own parent: seed 5150 4,424 to 3,167 m walked, seed 8086 4,178 to 3,249 m, 0 late seconds, releases on the decision an opponent appears or the circle moves |
+| quiet covered start, then a bullet on course 0.1 s later | combo A walks `[0.17, 0.98]` then dodges `[-0.5, 0.87]` with boost; combo B holds `[0, 0]` then dodges `[-0.5, 0.87]` with boost |
+| v10 and v11 trials against `3b290b0`; laser trial against `4588e6b`; dodge trial; `combo_check.py` | all identical to combo A |
+| route and pickup trials | fewer arrivals at the zone centre (route 24 of 150) because the hold stops short of the centre on purpose; 0 zone misses and every pickup still taken. `py tools/no_hold.py route_trial.py` and `pickup_trial.py` match the baseline exactly |
+
+Submitting combo A and combo B together separates their effects. Combo A minus 2.63 is what v10 and v11 add; combo B minus combo A is what v12 adds on top of the best build.
 
 ## Next experiment: laser trigger discipline (#3)
 

@@ -6,6 +6,7 @@ from cover import Cover
 from dodge import Dodge
 from first_run import Bot as FirstRun
 from kill_cubes import KillCubeDetour
+from hold import Hold
 from loot import PickupDetour
 from navigation import Navigator
 from objectives import Objectives
@@ -13,7 +14,7 @@ from targeting import Engagement
 
 
 class Bot(FirstRun):
-    name = "zone-runner-v7+8+10+11"
+    name = "zone-runner-v7+8+10+11+12"
 
     def __init__(self, hello):
         super().__init__(hello)
@@ -23,6 +24,7 @@ class Bot(FirstRun):
         self.engagement = Engagement(hello, Cover())
         self.dodge = Dodge(hello, self.nav)
         self.kill_cubes = KillCubeDetour(hello)
+        self.hold = Hold(self.engagement.cover)
 
     def nearest_cube(self, obs, reach):
         """The existing cube choice: the nearest visible cube within `reach` metres and 4 m of
@@ -56,11 +58,13 @@ class Bot(FirstRun):
                 action["aim"] = [math.atan2(pickup[1]-y, pickup[0]-x), 0.0]
         # v11: a confirmed kill opens one short window in which the usual cube choice may
         # reach farther and run while other, non-threatening mechs are listed.
+        chasing_cube = False
         reach = self.kill_cubes.window(obs, self.objectives.mode, self.engagement)
         if mode == "zone" and me["in_zone"] and (not obs["mechs"] or reach is not None):
             cube = self.nearest_cube(obs, reach or 16)
             if cube is not None:
                 waypoint = cube["pos"][:2]
+                chasing_cube = True
             self.kill_cubes.chose(obs, cube, reach)
         dx, dy = waypoint[0]-x, waypoint[1]-y
         length = math.hypot(dx, dy)
@@ -72,6 +76,12 @@ class Bot(FirstRun):
         walk_time = max(0,distance_to_safe) / max(1,me["stats"]["walk_speed"])
         late = distance_to_safe > 0 and obs["t"] + walk_time + 4 > zone["shrink_start"]
         action["boost"] = (late or not me["in_zone"]) and me["energy"] > 15
+        # v12: hold still beside cover while comfortably safe with nothing else to do.
+        if self.hold.steer(obs, action, mode=mode, chasing_cube=chasing_cube, recovering=recovering,
+                           loot=self.loot, engagement=self.engagement):
+            # Standing still on purpose is not being stuck: restart the obstacle-recovery
+            # sampling so it does not mistake the hold for a jam.
+            self.sample_pos = None
         # v8: one brief sideways step when a visible bullet is on course to hit us,
         # never while the zone return is urgent.
         self.dodge.steer(obs, action, urgent=mode == "return" or late or not me["in_zone"])
