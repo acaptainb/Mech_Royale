@@ -66,22 +66,26 @@ def main():
     mf.draw.line = mf.draw.point = mf.draw.label = lambda *args: None
     from bot import Bot
     local = Bot(et.HELLO)
-    reasons = {}
-    for obs in et.STREAM:
+    reasons, kiting = {}, set()
+    for k, obs in enumerate(et.STREAM):
         local.act(copy.deepcopy(obs))
         r = local.engagement.decision.get("reason")
         if obs["mechs"]:
             reasons[r] = reasons.get(r, 0) + 1
+        if getattr(local, "kite", None) is not None and local.kite.active:
+            kiting.add(k)  # kite-distance: backing away owns move, boost and jump here
     base_bot, cand_bot = BotProcess(folder, et.HELLO), BotProcess(ROOT, et.HELLO)
     fire_diff = other_diff = 0
-    for obs in et.STREAM:
+    for k, obs in enumerate(et.STREAM):
         a, c = base_bot.act(copy.deepcopy(obs)), cand_bot.act(copy.deepcopy(obs))
         fire_diff += a.get("fire") != c.get("fire")
-        rest = lambda x: {k: v for k, v in x.items() if k not in ("fire", "tick", "debug")}
+        skip = ("fire", "tick", "debug") + (("move", "boost", "jump") if k in kiting else ())
+        rest = lambda x: {key: v for key, v in x.items() if key not in skip}
         other_diff += rest(a) != rest(c)
     base_bot.close()
     cand_bot.close()
-    print(f"\nrecording: fire differs on {fire_diff} of {len(et.STREAM)} decisions; any other command differs on {other_diff}")
+    print(f"\nrecording: fire differs on {fire_diff} of {len(et.STREAM)} decisions; any other command differs on {other_diff}"
+          f" (move, boost and jump not compared on the {len(kiting)} kite decisions)")
     print("  candidate reasons while a mech is listed:", ", ".join(f"{k} {v}" for k, v in sorted(reasons.items())))
     if other_diff:
         failures.append("recording: a command other than fire changed")

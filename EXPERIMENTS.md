@@ -27,7 +27,13 @@ Practice seeds are fixed for the whole event and the bot is deterministic. A ver
 | no-mortar | `no-mortar` | `df1be152ba1bee40a368979ccb01eef1b7f9b347` | `3b290b0` (2.63) | 2.58 | -0.05 |
 | lead-shots | `lead-shots` | `4d8a32d3c453d3efb430baddb4bd141678417d77` | `3b290b0` (2.63) | **2.90** | +0.27 |
 | lead-shots + no-mortar | `lead-no-mortar` | `23b95d79841b9b2368f72f879c158d9084f065b1` | `4d8a32d` (2.90) | not submitted (no-mortar lost) | n/a |
-| crossing-fire | `crossing-fire` | this commit (tag `crossing-fire-candidate`) | `4d8a32d` (2.90) | pending | pending |
+| crossing-fire | `crossing-fire` | `c1200411b37163ea2496aefbb861a496d2bcea12` | `4d8a32d` (2.90) | **2.94** (entered in the final) | +0.04 |
+| offense-upgrades | `offense-upgrades` | `bb0e5e0dc51f8f75356a726230ca080da66706d3` | `4d8a32d` (2.90) | 2.85 | -0.05 |
+| laser-cover | `laser-cover` | `1961af48491445c4d10d88c767f901d163a98668` | `4d8a32d` (2.90) | 2.90 | +0.00 (exactly the parent: most likely never fired) |
+| chase-wounded | `chase-wounded` | `ef880813566961c48504d37db14e2e8234a8f3ef` | `4d8a32d` (2.90) | 2.75 | -0.15 |
+| plating-first | `plating-first` | `4ec3f8a664f39b2d0922f00b21a44ff3a7336575` | `c120041` (2.94) | pending | pending |
+| sensors-first | `sensors-first` | `71cda0dd1792272d8dcc3fbf053fc4f004502d7a` | `c120041` (2.94) | pending | pending |
+| kite-distance | `kite-distance` | this commit (tag `kite-distance-candidate`) | `c120041` (2.94) | pending | pending |
 
 ## Log
 
@@ -47,7 +53,9 @@ Practice seeds are fixed for the whole event and the bot is deterministic. A ver
 | duel-weave | `3b290b0` | not a candidate | angling the waypoint 20 degrees, alternating sides, in a clear duel keeps progress and cuts hits | eligible on 115 of 300 recording decisions; the move changed on all 115 | 16 held-out routes: 16/16 finished, but 570 hits vs 554 for 2.63 and safety 0.8 s later | not submitted | gate not passed: more hits than 2.63 |
 | lead-shots | `3b290b0` | this commit (tag `lead-shots-candidate`) | aiming the gun where a moving opponent will be when the bullet arrives lands more hits, so we kill more of the house bots that hunt us before we die | every decision with a moving opponent: aim led on 169 of 300 recording decisions | hits 56 to 109 of 130 shots (43% to 84%) in a closed-loop gunfight; never fewer; laser still released onto a moving target; only the aim changes | **2.90 (+0.27)** | **keep: best score so far** |
 | lead-shots + no-mortar | `4d8a32d` | this commit (tag `lead-no-mortar-candidate`) | not carrying a mortar adds to leading the gun | as in no-mortar | the no-mortar trial against `4d8a32d` matches no-mortar's own result; the lead trial against `3b290b0` matches lead-shots exactly (109 of 130) | not submitted | dropped: no-mortar alone scored 2.58 |
-| crossing-fire | `4d8a32d` | this commit (tag `crossing-fire-candidate`) | now that the gun is led, firing on passive opponents that unled shots would have missed lands hits v6 gave away | 8 of 300 recording decisions (all of v6's "passive, shots would miss" holds); every passive opponent walking across our view in a match | passive crossing opponents: 0 to 9-14 hits per 6 s (80-93%); zigzagging: 60-67%; controls identical; only the fire command changes | pending | pending your score |
+| crossing-fire | `4d8a32d` | this commit (tag `crossing-fire-candidate`) | now that the gun is led, firing on passive opponents that unled shots would have missed lands hits v6 gave away | 8 of 300 recording decisions (all of v6's "passive, shots would miss" holds); every passive opponent walking across our view in a match | passive crossing opponents: 0 to 9-14 hits per 6 s (80-93%); zigzagging: 60-67%; controls identical; only the fire command changes | **2.94 (+0.04)** | **keep: best score; parent of plating-first, sensors-first and kite-distance** |
+| chase-wounded | `4d8a32d` | `ef88081` (tag `chase-wounded-candidate`) | closing in on the only, nearly dead opponent finishes kills | 0 on the recording (lowest opponent 73% HP) | kills within 10 s 5 to 7 in its trial | 2.75 (-0.15) | revert: walking toward opponents loses placements |
+| kite-distance | `c120041` | this commit (tag `kite-distance-candidate`) | backing away from a house mech that fights us or walks at us within 70 m keeps it out of lightning and mortar range and keeps us alive longer | 4 of 300 recording decisions (the listed mech at 55-60 m, aiming at us); every close attacker in a match | closed-loop fights: damage taken 5,250 to 2,565 over 5 activating cases (lightning 840 and 1,440 to 0, mortar 360 to 0, gun 1,350 to 1,305 and 1,260 to 1,260); controls identical; no extra zone exits | pending | pending your score |
 | no-mortar | `3b290b0` | `df1be15` (tag `no-mortar-candidate`) | never carrying a mortar helps: we cannot aim it, and holding one makes every laser hit on us cook off for +60% | whenever v5 would detour for or walk over a mortar (a third of floor weapons); 0 on the recording (no mortar within 70 m) | never carries a mortar in any layout; takes a laser instead when one is near; control identical | 2.58 (-0.05) | revert: the mortar is worth carrying (see below) |
 
 ## v6: selective engagement
@@ -285,6 +293,41 @@ Evidence (`py tools/crossing_fire_trial.py`: the lead-shots gunfight with oppone
   - "committed" lasts 3 s after our hit.
 - **Narrowed recording checks:** the lead trial ignores fire, and the laser trial ignores this both-slots opening fire.
 - **Other checks:** the laser trial against v8, the engagement held-out seeds, the dodge trial, combo check, objective checks, route, pickup and target trials, the probe and `verify.py` all pass.
+
+## kite-distance (on `c120041`, the 2.94 commit)
+
+Placement is the whole score (16 - place, the death order), and the house bots hunt us. chase-wounded (walking toward a wounded opponent) lost 0.15, so this tests the opposite: keep house mechs at range. Close range favours them (lightning reaches 45 m, a mortar's 7 m splash, hard-to-lead targets); our gun reaches 230 m and has been led since lead-shots.
+
+The change, in `kite.py`, wired into `bot.py` before the v8 dodge:
+
+- **Trigger:** a listed game mech within 70 m that hit us within the engagement's 5 s memory, aims at us (the engagement's 12 degree threat test, held 1 s), or walks at us (faster than 2 m/s with its velocity within 30 degrees of the bearing to us). A mech passing by is not closing.
+- **Move:** away from the threat-weighted centroid of those mechs (closer and fighting weigh more), blended with 0.35 of the heading to the current waypoint. An 8 m leg must be clear on the ground grid, end 5 m inside the current circle and, when we are inside the next circle, 5 m inside it too (otherwise it must not lose ground toward it). If the straight-away leg fails, legs turned 30, 60 and 90 degrees to either side are tried; with none, the normal move stands.
+- **Boost:** only while energy is above 50.
+- **Not while:** an urgent zone return (outside the zone, the return mode, or late for the shrink), a supply-drop capture, or obstacle recovery.
+- **Unchanged:** aim and fire (the engagement decision is now computed once just before movement, from the same observation, and drives aiming and firing as before); the dodge runs afterwards and keeps the final say; `Kite.decisions` counts the decisions it set the move.
+
+Evidence (`py tools/kite_trial.py`): a closed-loop fight on the open lawn, against `c120041`, both as real bot processes from identical starts and spread draws. Our mech walks a 120 m route; one house mech starts 90 m away and walks at us (11.7 m/s) to its standoff distance while shooting; we shoot back with our gun. Walls, acceleration, boost energy, regeneration and both HP pools follow the commands. 25 s or until a mech dies.
+
+| Case | Closest m base / kite | Damage taken | Our hits | Kill at s | Our HP left | Decisions outside the zone |
+| --- | --- | --- | --- | --- | --- | --- |
+| gun attacker, ahead | 65 / 66 | 1,350 / 1,305 | 32 / 32 | 12 / 12 | 50 / 95 | 0 / 0 |
+| gun attacker, abeam | 68 / 70 | 1,260 / 1,260 | 32 / 32 | 13 / 13 | 140 / 140 | 0 / 0 |
+| gun attacker, behind (measurement: walking the route already opens the gap) | 72 / 72 | identical | | | | 0 / 0 |
+| lightning attacker, abeam | 42 / 68 | 840 / 0 | 32 / 32 | 13 / 13 | 560 / 1,400 | 0 / 0 |
+| lightning attacker, ahead | 39 / 65 | 1,440 / 0 | 22 / 32 | - / 12.5 | dead at 7.7 s / 1,400 | 0 / 0 |
+| mortar attacker, abeam | 60 / 68 | 360 / 0 | 32 / 32 | 13 / 13 | 1,040 / 1,400 | 0 / 0 |
+| attacker holding at 100 m; passive mech passing 50 m to the side; urgent zone return (controls) | identical | identical | identical | identical | identical | identical |
+
+- **Against a gun,** distance barely helps: a led bullet at 70 m still lands. crossing-fire already backs off after each hit (its 2.5 s relocation), which is why its closest distances are 65-72 m.
+- **Cost:** progress toward the route's end. In the lightning and mortar cases we end 56 m from it instead of 27 and 14 m. The zone check never failed (0 extra decisions outside).
+- **Trace** (lightning attacker abeam): at t=2.0 the attacker is 69 m away; crossing-fire keeps walking the route and the gap shrinks to 45 m by t=9, where every arc hits (HP 1,400 to 740 by t=12). kite-distance turns away (boosting while energy is above 50) and holds 69-71 m to the end; it takes no damage and kills the attacker at 13.0 s (crossing-fire at 12.9 s).
+- **Recording:** the kite sets the move on 4 of 300 decisions (t = 35.9 to 36.8, the listed mech 55-60 m away and aiming at us); only move and boost differ, nothing else.
+- **Cost against a gun shooter standing still** (the v8 reactive trial in `tools/dodge_trial.py`, run for crossing-fire and for this commit): hits taken 404 to 424 on the tuning set and 554 to 563 held-out, arrival 0.5-3 s later, no zone exits. Shooters beyond 70 m of the route give identical numbers. Within 70 m most routes take more hits (60 m oblique 38 to 46, routes at 51-61 m 36-40 to 45-46), because backing straight away removes the sideways motion that makes a led bullet miss; three routes take fewer (98 m route 37 to 27, 50 m route 38 to 30).
+- **Narrowed checks** (each still fails on any other difference):
+  - `tools/engagement_trial.py`: movement may differ on decisions where the kite owns the move, as already allowed for the dodge (156 of 965 scripted decisions, 4 of 300 on the recording). Every scenario's aim and fire expectation still passes, and the held-out rules pass.
+  - `tools/crossing_fire_trial.py` and `tools/lead_trial.py` recording checks: move, boost and jump are not compared on the 4 kite decisions.
+  - `tools/combo_check.py`: in "full laser, clear opponent 30 m, no bullet" the kite owns the move, so only fire is compared with v7 there; the two bullet cases still move exactly as v8 (the dodge has the final say).
+- **Other checks:** entrypoint trial against v8, dodge trial scripted cases, objective checks (12), route trial (150/150), pickup and target trials, the probe and `verify.py` (p99 1.2 ms) pass unchanged.
 
 ## Next experiment: laser trigger discipline (#3)
 
