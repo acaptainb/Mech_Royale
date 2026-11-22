@@ -128,3 +128,7 @@ Movement, highest first: the stuck recovery; the bullet and shell dodges (the fi
 ## squad-all-sticky
 
 squad-all (`9399d0d`) with practice mode kept on until three mechs have died to something other than us.
+
+## squad-all-fixed
+
+squad-all-sticky (`076bec9`) with seven practice-mode corrections: the move part fights only the target (an engaged mech with a line of fire within 240 m; others are only faced); a laser pursuit keeps going through damage and nearby mechs, follows remembered pickups and ranks above zone should; the mid-fight cube grab only goes for cubes we can reach and gives one up after 3 s without progress; no supply-drop pursuit or relocate hop; cubes (not crates or drones) still count under threat; a held mortar never fires; the torso turns onto a lethal laser shot one decision earlier. Run the four trials as for squad-all.
