@@ -25,7 +25,8 @@ Practice seeds are fixed for the whole event and the bot is deterministic. A ver
 | duel-strafe | `duel-strafe` | `2b8e620b618581f267189f12ca46d12b5be28588` | `3b290b0` (2.63) | 2.46 (submission row SHA still to be matched to `2b8e620`) | -0.17 |
 | duel-weave | `duel-weave` | not a candidate: failed its pre-submission gate | `3b290b0` (2.63) | not submitted | n/a |
 | no-mortar | `no-mortar` | `df1be152ba1bee40a368979ccb01eef1b7f9b347` | `3b290b0` (2.63) | pending | pending |
-| lead-shots | `lead-shots` | this commit (tag `lead-shots-candidate`) | `3b290b0` (2.63) | pending | pending |
+| lead-shots | `lead-shots` | `4d8a32d3c453d3efb430baddb4bd141678417d77` | `3b290b0` (2.63) | **2.90** | +0.27 |
+| lead-shots + no-mortar | `lead-no-mortar` | this commit (tag `lead-no-mortar-candidate`) | `4d8a32d` (2.90) | pending | pending |
 
 ## Log
 
@@ -43,7 +44,8 @@ Practice seeds are fixed for the whole event and the bot is deterministic. A ver
 | combos A and B | `3b290b0` | `f0a59c7`, `32259f0` | v10 + v11, then v12, add to v8 + v7 | v10, v11 and v12 as on their own branches | each trial reproduced its standalone result | 2.60 and 2.58 | revert: both below 2.63, so v10 or v11 fired in practice and cost placements, and v12 cost more |
 | duel-strafe | `3b290b0` | this commit (tag `duel-strafe-candidate`) | walking sideways to the only, clearly visible opponent during ordinary zone movement helps survive the exchange | eligible on 115 of 300 recording decisions; the move changed on all 115 | hit rate under a leading shooter -17% and -11%, but routes stall while the opponent stays in view (see below) | 2.46 (-0.17) | revert: it fired at about 150 m, mostly against a laser user (hitscan, not dodgeable by walking), and replaced progress toward the zone |
 | duel-weave | `3b290b0` | not a candidate | angling the waypoint 20 degrees, alternating sides, in a clear duel keeps progress and cuts hits | eligible on 115 of 300 recording decisions; the move changed on all 115 | 16 held-out routes: 16/16 finished, but 570 hits vs 554 for 2.63 and safety 0.8 s later | not submitted | gate not passed: more hits than 2.63 |
-| lead-shots | `3b290b0` | this commit (tag `lead-shots-candidate`) | aiming the gun where a moving opponent will be when the bullet arrives lands more hits, so we kill more of the house bots that hunt us before we die | every decision with a moving opponent: aim led on 169 of 300 recording decisions | hits 56 to 109 of 130 shots (43% to 84%) in a closed-loop gunfight; never fewer; laser still released onto a moving target; only the aim changes | pending | pending your score |
+| lead-shots | `3b290b0` | this commit (tag `lead-shots-candidate`) | aiming the gun where a moving opponent will be when the bullet arrives lands more hits, so we kill more of the house bots that hunt us before we die | every decision with a moving opponent: aim led on 169 of 300 recording decisions | hits 56 to 109 of 130 shots (43% to 84%) in a closed-loop gunfight; never fewer; laser still released onto a moving target; only the aim changes | **2.90 (+0.27)** | **keep: best score so far** |
+| lead-shots + no-mortar | `4d8a32d` | this commit (tag `lead-no-mortar-candidate`) | not carrying a mortar adds to leading the gun | as in no-mortar | the no-mortar trial against `4d8a32d` matches no-mortar's own result; the lead trial against `3b290b0` matches lead-shots exactly (109 of 130) | pending | submit only if no-mortar alone beats 2.63 |
 | no-mortar | `3b290b0` | `df1be15` (tag `no-mortar-candidate`) | never carrying a mortar helps: we cannot aim it, and holding one makes every laser hit on us cook off for +60% | whenever v5 would detour for or walk over a mortar (a third of floor weapons); 0 on the recording (no mortar within 70 m) | never carries a mortar in any layout; takes a laser instead when one is near; control identical | pending | pending your score |
 
 ## v6: selective engagement
@@ -236,6 +238,18 @@ Evidence (`py tools/lead_trial.py`: a closed-loop gunfight against `3b290b0`, bo
 - **Recording:** the aim is led on all 169 decisions with an opponent listed, and no command other than aim differs. The first led decision is at t=4.9, 140 m away: yaw +0.850 against +0.807.
 - **Narrowed checks:** the laser trial's recording control now compares fire commands, and the engagement held-out rule R3 also accepts a lead bearing, computed independently in the trial.
 - **Other checks:** the dodge trial, combo check, objective checks, route, pickup and target trials, the probe and `verify.py` all pass.
+
+**Official result: 2.90 (+0.27 over 2.63)**, the largest single gain since v8. In the practice matches a hit is worth far more than its damage: each house bot killed before we die is about one more placement point.
+
+## lead-shots + no-mortar (on `4d8a32d`, the 2.90 commit)
+
+No-mortar's commit (`df1be15`) applied on lead-shots. The only conflict was the bot's name.
+
+- **The mortar rule:** `py tools/no_mortar_trial.py --baseline 4d8a32d` matches no-mortar against its own parent (never carries a mortar; takes the laser when one is near; control identical).
+- **The lead rule:** `py tools/lead_trial.py` against `3b290b0` gives 109 of 130 hits, the same as lead-shots, and the laser is still released onto a moving target.
+- **Other checks:** the laser trial against v8, the engagement trial with both held-out seeds, the dodge trial, combo check, objective checks, route, pickup and target trials, the probe and `verify.py` all pass.
+
+Prepared in advance: submit it only if no-mortar alone scores above 2.63.
 
 ## Next experiment: laser trigger discipline (#3)
 

@@ -89,7 +89,7 @@ def simulate(controller, scenario):
     hp = max_hp = stats["hp"]
     energy, spent_at = stats["energy"], -10.0
     events = []
-    result = dict(acquired=0, take_requests=0, reached=None, outside_ticks=0, zone_damage=0.0)
+    result = dict(acquired=0, take_requests=0, reached=None, outside_ticks=0, zone_damage=0.0, taken=[])
     for tick in range(int(scenario["seconds"] / DT)):
         now = tick * DT
         f = min(1.0, max(0.0, (now - zone["shrink_start"]) / (zone["shrink_end"] - zone["shrink_start"])))
@@ -140,6 +140,7 @@ def simulate(controller, scenario):
                 weapons[1] = dict(kind=wanted["kind"], cooldown=CONFIG["loot"]["equip_s"], stats={})
                 events.append(dict(type="took", id=wanted["id"], kind=wanted["kind"], slot=1))
                 result["acquired"] += 1
+                result["taken"].append(wanted["kind"])
         if "aim" in action:
             turn = (action["aim"][0] - yaw + math.pi) % math.tau - math.pi
             yaw += max(-stats["turn_rate"] * DT, min(stats["turn_rate"] * DT, turn))

@@ -107,7 +107,9 @@ class PickupDetour:
         found = []
         for pickup in obs["pickups"]:
             distance = math.dist(pos, pickup["pos"][:2])
-            if pickup["kind"] in held or distance > self.MAX_ROUTE:
+            # no-mortar: never go for a mortar. Our aim lands its shells short, and carrying one
+            # makes every laser hit on us cook off for +60%.
+            if pickup["kind"] in held or pickup["kind"] == "mortar" or distance > self.MAX_ROUTE:
                 continue
             at = self.stand_point(pickup)
             if at is not None:
