@@ -2,6 +2,7 @@
 import math
 
 import mechfight as mf
+from breaksight import BreakSight
 from cover import Cover
 from dodge import Dodge, ShellDodge
 from first_run import Bot as FirstRun
@@ -12,7 +13,7 @@ from targeting import Engagement
 
 
 class Bot(FirstRun):
-    name = "zone-runner-md-crossing-fire"
+    name = "zone-runner-md-cf-break-sight"
 
     def __init__(self, hello):
         super().__init__(hello)
@@ -22,6 +23,7 @@ class Bot(FirstRun):
         self.engagement = Engagement(hello, Cover())
         self.dodge = Dodge(hello, self.nav)
         self.shell_dodge = ShellDodge(hello, self.nav, self.engagement.cover)
+        self.break_sight = BreakSight(hello, self.nav, self.engagement.cover)
 
     def act(self, obs):
         action = super().act(obs)
@@ -59,9 +61,15 @@ class Bot(FirstRun):
         walk_time = max(0,distance_to_safe) / max(1,me["stats"]["walk_speed"])
         late = distance_to_safe > 0 and obs["t"] + walk_time + 4 > zone["shrink_start"]
         action["boost"] = (late or not me["in_zone"]) and me["energy"] > 15
+        urgent = mode == "return" or late or not me["in_zone"]
+        # break-sight: losing a fight (hit by a mech while below 55% HP or with two or more
+        # mechs listed), move behind solid cover from every opponent and stand there until HP
+        # regenerates. Urgent zone return wins; runs before the dodges, which keep the final say.
+        if self.break_sight.steer(obs, action, urgent=urgent):
+            # A deliberate wait is not a jam: keep the inherited stuck detector from firing.
+            self.sample_pos, self.detour_until = None, 0.0
         # v8: one brief sideways step when a visible bullet is on course to hit us,
         # never while the zone return is urgent.
-        urgent = mode == "return" or late or not me["in_zone"]
         self.dodge.steer(obs, action, urgent=urgent)
         # mortar-dodge: step out of the blast of a visible mortar shell that would land on
         # our route; it has the last word on movement, and never acts on an urgent return.

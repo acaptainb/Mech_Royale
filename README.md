@@ -82,3 +82,7 @@ Built on lead-shots (`4d8a32d`, official 2.90). The bot steps out of the blast o
 ## mortar-dodge + crossing-fire
 
 Built on mortar-dodge (`1645c22`, official 3.00) with crossing-fire's change (`c120041`, official 2.94) added unchanged: the shell dodge owns movement when a mortar shell threatens the route, and the gun also fires at a passive opponent when its aim is led. Run `py tools/combo_md_cf_check.py` to check that it moves exactly as mortar-dodge and fires exactly as crossing-fire.
+
+## break-sight on the combination
+
+Built on the mortar-dodge + crossing-fire combination (`4f4596e`, official 3.04) with break-sight (`52ed6c6`) added unchanged: when losing a fight (hit by a mech while below 55% HP, or with two or more mechs listed), the bot moves behind solid cover from every opponent and waits there until HP regenerates to 85%, the zone return becomes urgent or 20 s pass. Run `py tools/break_sight_trial.py` for the closed-loop gunfights against the combination.
