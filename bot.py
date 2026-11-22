@@ -12,7 +12,7 @@ from targeting import Engagement
 
 
 class Bot(FirstRun):
-    name = "zone-runner-lead-shots"
+    name = "zone-runner-offense-upgrades"
 
     def __init__(self, hello):
         super().__init__(hello)
@@ -62,7 +62,13 @@ class Bot(FirstRun):
         # never while the zone return is urgent.
         self.dodge.steer(obs, action, urgent=mode == "return" or late or not me["in_zone"])
         if obs["offer"]:
-            priorities = ("armor","plating","nanites","servos","gun_rate","sensors")
+            # offense-upgrades: gun, then the held weapons' own upgrades, then the old order.
+            # Offers only list weapon upgrades for weapons we hold.
+            priorities = ("gun_rate","gun_damage","gun_velocity","gun_mag",
+                          "laser_damage","laser_charge","laser_pierce",
+                          "lightning_chain","lightning_efficiency","lightning_range",
+                          "mortar_reload","mortar_splash","mortar_velocity",
+                          "armor","plating","nanites","servos","sensors")
             choices = obs["offer"]["choices"]
             action["pick"] = min(range(len(choices)),key=lambda i:
                 priorities.index(choices[i]["id"]) if choices[i]["id"] in priorities else len(priorities))
