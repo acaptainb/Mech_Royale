@@ -27,7 +27,13 @@ Practice seeds are fixed for the whole event and the bot is deterministic. A ver
 | no-mortar | `no-mortar` | `df1be152ba1bee40a368979ccb01eef1b7f9b347` | `3b290b0` (2.63) | 2.58 | -0.05 |
 | lead-shots | `lead-shots` | `4d8a32d3c453d3efb430baddb4bd141678417d77` | `3b290b0` (2.63) | **2.90** | +0.27 |
 | lead-shots + no-mortar | `lead-no-mortar` | `23b95d79841b9b2368f72f879c158d9084f065b1` | `4d8a32d` (2.90) | not submitted (no-mortar lost) | n/a |
-| crossing-fire | `crossing-fire` | this commit (tag `crossing-fire-candidate`) | `4d8a32d` (2.90) | pending | pending |
+| crossing-fire | `crossing-fire` | `c1200411b37163ea2496aefbb861a496d2bcea12` | `4d8a32d` (2.90) | **2.94** (entered in the final) | +0.04 |
+| offense-upgrades | `offense-upgrades` | `bb0e5e0dc51f8f75356a726230ca080da66706d3` | `4d8a32d` (2.90) | 2.85 | -0.05 |
+| laser-cover | `laser-cover` | `1961af48491445c4d10d88c767f901d163a98668` | `4d8a32d` (2.90) | 2.90 | +0.00 (exactly the parent: most likely never fired) |
+| chase-wounded | `chase-wounded` | `ef880813566961c48504d37db14e2e8234a8f3ef` | `4d8a32d` (2.90) | 2.75 | -0.15 |
+| plating-first | `plating-first` | `4ec3f8a664f39b2d0922f00b21a44ff3a7336575` | `c120041` (2.94) | pending | pending |
+| sensors-first | `sensors-first` | `71cda0dd1792272d8dcc3fbf053fc4f004502d7a` | `c120041` (2.94) | pending | pending |
+| rooftop | `rooftop` | this commit (tag `rooftop-candidate`) | `c120041` (2.94) | pending | pending |
 
 ## Log
 
@@ -47,7 +53,8 @@ Practice seeds are fixed for the whole event and the bot is deterministic. A ver
 | duel-weave | `3b290b0` | not a candidate | angling the waypoint 20 degrees, alternating sides, in a clear duel keeps progress and cuts hits | eligible on 115 of 300 recording decisions; the move changed on all 115 | 16 held-out routes: 16/16 finished, but 570 hits vs 554 for 2.63 and safety 0.8 s later | not submitted | gate not passed: more hits than 2.63 |
 | lead-shots | `3b290b0` | this commit (tag `lead-shots-candidate`) | aiming the gun where a moving opponent will be when the bullet arrives lands more hits, so we kill more of the house bots that hunt us before we die | every decision with a moving opponent: aim led on 169 of 300 recording decisions | hits 56 to 109 of 130 shots (43% to 84%) in a closed-loop gunfight; never fewer; laser still released onto a moving target; only the aim changes | **2.90 (+0.27)** | **keep: best score so far** |
 | lead-shots + no-mortar | `4d8a32d` | this commit (tag `lead-no-mortar-candidate`) | not carrying a mortar adds to leading the gun | as in no-mortar | the no-mortar trial against `4d8a32d` matches no-mortar's own result; the lead trial against `3b290b0` matches lead-shots exactly (109 of 130) | not submitted | dropped: no-mortar alone scored 2.58 |
-| crossing-fire | `4d8a32d` | this commit (tag `crossing-fire-candidate`) | now that the gun is led, firing on passive opponents that unled shots would have missed lands hits v6 gave away | 8 of 300 recording decisions (all of v6's "passive, shots would miss" holds); every passive opponent walking across our view in a match | passive crossing opponents: 0 to 9-14 hits per 6 s (80-93%); zigzagging: 60-67%; controls identical; only the fire command changes | pending | pending your score |
+| crossing-fire | `4d8a32d` | this commit (tag `crossing-fire-candidate`) | now that the gun is led, firing on passive opponents that unled shots would have missed lands hits v6 gave away | 8 of 300 recording decisions (all of v6's "passive, shots would miss" holds); every passive opponent walking across our view in a match | passive crossing opponents: 0 to 9-14 hits per 6 s (80-93%); zigzagging: 60-67%; controls identical; only the fire command changes | **2.94 (+0.04)** | **keep: best score; parent of plating-first, sensors-first and rooftop** |
+| rooftop | `c120041` | this commit (tag `rooftop-candidate`) | camping on a flat roof inside the next circle, instead of standing on open ground, keeps us out of sight of close house bots and so alive longer (placement is the death order) | ordinary zone movement with a qualifying roof within 80 m and nobody listed: 42% of positions inside the recorded first circle; 0 on the recording (its nearby roofs are outside the next circle) | physics model: 16/16 climbs reach the roof in 3.7-8.9 s and camp; seen from 20 m 100% -> 43%, from 45 m 86% -> 61%, from 100 m 45% -> 61%; controls identical | pending | pending your score |
 | no-mortar | `3b290b0` | `df1be15` (tag `no-mortar-candidate`) | never carrying a mortar helps: we cannot aim it, and holding one makes every laser hit on us cook off for +60% | whenever v5 would detour for or walk over a mortar (a third of floor weapons); 0 on the recording (no mortar within 70 m) | never carries a mortar in any layout; takes a laser instead when one is near; control identical | 2.58 (-0.05) | revert: the mortar is worth carrying (see below) |
 
 ## v6: selective engagement
@@ -285,6 +292,56 @@ Evidence (`py tools/crossing_fire_trial.py`: the lead-shots gunfight with oppone
   - "committed" lasts 3 s after our hit.
 - **Narrowed recording checks:** the lead trial ignores fire, and the laser trial ignores this both-slots opening fire.
 - **Other checks:** the laser trial against v8, the engagement held-out seeds, the dodge trial, combo check, objective checks, route, pickup and target trials, the probe and `verify.py` all pass.
+
+## Results for crossing-fire and the lead-shots batch
+
+- **crossing-fire `c120041`: 2.94 (+0.04 over lead-shots).** The new best, entered in the final; parent of plating-first, sensors-first and rooftop.
+- **offense-upgrades `bb0e5e0`: 2.85 (-0.05).** Taking gun and weapon upgrades first loses to the defence-first order.
+- **laser-cover `1961af4`: 2.90 (+0.00).** Exactly its parent's score, so stepping behind cover from a charging laser most likely never fired in the fixed practice matches.
+- **chase-wounded `ef88081`: 2.75 (-0.15).** Walking toward a nearly dead opponent lost, like the other changes to where we walk.
+
+## rooftop (on `c120041`, the 2.94 commit)
+
+**Why:** placement is the order of deaths, and the house bots share vision and hunt us, so every point of the score is time alive relative to them. A mech on a flat roof is out of sight of ground mechs close to the building, because the roof edge blocks the line from an eye 8 m above the ground. This is the first change aimed at being seen less rather than at fighting better. It is a high-risk experiment that only the official score can judge.
+
+**The one change** (`rooftop.py`, wired into `bot.py` before the dodge):
+
+- **When:** ordinary zone mode, no urgent zone return, no stuck recovery, no pickup detour, nobody listed, standing on the ground.
+- **Which roof:** `roofs.json` (`py tools/build_roofs.py`, from `cover.i16`, the navigation grid and the arena's fences, cars and trunks) lists 67 flat roofs 8-45 m above the ground beside them. Each has a camp spot at least 5 m in from the edge; together they have 472 climb points on straight walls. A climb point qualifies when its stage is within 80 m in a straight line, its roof's camp spot is at least 12 m inside both the next and the current circle, the roof is not banned, and the climb's energy fits in the tank.
+- **How:** walk to the stage point (7 m out from the wall) on the navigation grid, then wait there until energy covers the climb (1.5 per metre plus 15). Then run at the wall, jump and jet while pushing into it until the feet are 0.8 m above the roof, land, walk to the camp spot and hold still. Aim and fire are untouched throughout.
+- **Leaving:** once the camp spot is less than 6 m inside either circle, or the zone return becomes urgent, walk back to the landing point and off the same wall; normal movement resumes on the ground.
+- **Safeguards:**
+  - the approach gives up on a listed mech, a pickup, a different objective or a timeout;
+  - the run gives up after 2.5 s;
+  - the climb aborts after 6 s, when it falls back to the ground, or when energy runs out below the roof;
+  - a failed climb bans that roof for 120 s, and any give-up waits 10 s before the next trip.
+- **Dodge:** the v8 dodge runs as before, except during the run, the climb and the walk off the roof. On a roof its own feasibility check (the ground navigation grid) blocks every step, so it never fires there.
+
+**Trial** (`py tools/rooftop_trial.py`):
+- **Model:** a closed-loop model of the movement rules in protocol.md section 7 over the cover raster: accelerations, gravity, jump, jets capped at the rise speed with their drain, boost, regeneration, sliding along walls, step-up, and landing on a roof edge.
+- **Setup:** both bots run as real processes from identical starts.
+- **Limit:** no opponents shoot. It checks the command sequence and the exposure, not what the house bots do.
+
+| Case | Result |
+| --- | --- |
+| 16 spawns 25-75 m from a climb point (8-34 m walls) | 16/16 on the roof in 3.7-8.9 s (median 5.4), 16/16 camping at the camp spot, one jump each, lowest energy 46-85 |
+| ground observers with a line of sight at t = 25 s, 20 m | base 164/164 (100%), rooftop 39/90 (43%) |
+| 45 m | base 128/148 (86%), rooftop 95/157 (61%) |
+| 100 m | base 67/148 (45%), rooftop 89/147 (61%) |
+| the next circle moves away at 35 s | back on the ground at 41.5 s, heading for the new circle, never outside the zone |
+| spawn by the wall with 0 energy | waits, jumps at 2.9 s with 52 energy (needs 42), on the roof at 5.6 s, never below 27 in the air |
+| jets disabled (a climb that cannot succeed) | four failed jumps over 60 s (one per roof, each banned), still reaches the zone centre |
+| urgent zone return, an opponent listed, no roof within 80 m | identical answers on every decision |
+
+- **Recording:** 0 of 300 answers differ. The nearest climb point is 13 m from the first position, but those roofs are outside the next circle.
+- **Exposure trade:** close observers (20-45 m) see us far less, distant ones (100 m) more, because a mech is 9 m tall and its top shows above the roof from farther away.
+- **Route trial:** `tools/route_trial.py` keeps the mech at height 0 and ignores jumps, so every climb there fails. That costs time: 150/150 routes are still reached, but the median goes from 40.5 s (crossing-fire) to 51.7 s. It is the same cost the jets-disabled case shows: a climb that fails in the real game shows up as short, banned detours.
+- **Model limits:** the real server may differ at walls, edges and eaves.
+- **Regressions:** all pass without narrowing any check:
+  - the engagement trial, with and without `--heldout`;
+  - the crossing-fire, lead, laser entrypoint and dodge trials, and the combo check;
+  - the objective checks, and the route, pickup and target trials;
+  - the probe and `verify.py`.
 
 ## Next experiment: laser trigger discipline (#3)
 

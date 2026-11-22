@@ -8,11 +8,12 @@ from first_run import Bot as FirstRun
 from loot import PickupDetour
 from navigation import Navigator
 from objectives import Objectives
+from rooftop import Rooftop
 from targeting import Engagement
 
 
 class Bot(FirstRun):
-    name = "zone-runner-crossing-fire"
+    name = "zone-runner-rooftop"
 
     def __init__(self, hello):
         super().__init__(hello)
@@ -21,6 +22,7 @@ class Bot(FirstRun):
         self.loot = PickupDetour(hello)
         self.engagement = Engagement(hello, Cover())
         self.dodge = Dodge(hello, self.nav)
+        self.rooftop = Rooftop(hello)
 
     def act(self, obs):
         action = super().act(obs)
@@ -58,9 +60,14 @@ class Bot(FirstRun):
         walk_time = max(0,distance_to_safe) / max(1,me["stats"]["walk_speed"])
         late = distance_to_safe > 0 and obs["t"] + walk_time + 4 > zone["shrink_start"]
         action["boost"] = (late or not me["in_zone"]) and me["energy"] > 15
+        urgent = mode == "return" or late or not me["in_zone"]
+        # rooftop: during ordinary zone movement with time to spare and nobody listed, jet onto
+        # a nearby flat roof inside the next circle and camp there until the zone moves on.
+        self.rooftop.steer(obs, action, mode=mode, urgent=urgent, recovering=recovering, pickup=pickup)
         # v8: one brief sideways step when a visible bullet is on course to hit us,
-        # never while the zone return is urgent.
-        self.dodge.steer(obs, action, urgent=mode == "return" or late or not me["in_zone"])
+        # never while the zone return is urgent, nor during a rooftop run, climb or descent.
+        if self.rooftop.dodge_ok:
+            self.dodge.steer(obs, action, urgent=urgent)
         if obs["offer"]:
             priorities = ("armor","plating","nanites","servos","gun_rate","sensors")
             choices = obs["offer"]["choices"]
