@@ -4,6 +4,7 @@ import math
 import mechfight as mf
 from cover import Cover
 from dodge import Dodge, ShellDodge
+from farm import CubeFarm
 from first_run import Bot as FirstRun
 from loot import PickupDetour
 from navigation import Navigator
@@ -12,7 +13,7 @@ from targeting import Engagement
 
 
 class Bot(FirstRun):
-    name = "zone-runner-dodge-tuned"
+    name = "zone-runner-dt-farm-power"
 
     def __init__(self, hello):
         super().__init__(hello)
@@ -22,6 +23,7 @@ class Bot(FirstRun):
         self.engagement = Engagement(hello, Cover())
         self.dodge = Dodge(hello, self.nav)
         self.shell_dodge = ShellDodge(hello, self.nav, self.engagement.cover)
+        self.farm = CubeFarm(hello)
 
     def act(self, obs):
         action = super().act(obs)
@@ -40,7 +42,12 @@ class Bot(FirstRun):
                     and not any(other["kind"] == "mech" for other in obs["mechs"])):
                 # Face the pickup so it stays inside the vision wedge.
                 action["aim"] = [math.atan2(pickup[1]-y, pickup[0]-x), 0.0]
-        if mode == "zone" and me["in_zone"] and not obs["mechs"]:
+        # farm-power: in the first 180 s with no mech around, walk to cubes up to 120 m away
+        # (see farm.py); otherwise the inherited 16 m cube rule below.
+        farm = self.farm.choose(obs, self.engagement.attackers) if mode == "zone" else None
+        if farm is not None:
+            waypoint = farm
+        elif mode == "zone" and me["in_zone"] and not obs["mechs"]:
             nearby = sorted(obs["cubes"], key=lambda item: math.dist(item["pos"], me["pos"]))
             for cube in nearby:
                 at = cube["pos"]
@@ -84,12 +91,19 @@ class Bot(FirstRun):
                     action["reload"] = True
         # v6: opponent choice and the decision to shoot replace the inherited nearest-mech
         # rule. Movement, pickups and how the weapons are triggered are as in v5.
-        engage = self.engagement.decide(obs)
+        # farm-power: in the first 180 s with nobody to fight, the engagement also shoots passive
+        # drones and crates within 150 m (targeting.py); crates not during a pickup detour, which
+        # keeps facing its pickup.
+        engage = self.engagement.decide(obs, crates=pickup is None)
         # During a pickup detour v5 faces the pickup to keep it in view; only a listed
         # opponent overrides that, never the turn toward an unseen attacker.
         if engage["aim"] is not None and not (pickup is not None and engage["target"] is None):
             action["aim"] = engage["aim"]
         fire = [bool(engage["fire"]), bool(engage["fire"])]
+        if engage.get("crate") is not None:
+            # Only the gun shoots crates: a laser charge halves walking speed and leaves the
+            # laser on cooldown, a mortar shell is spent, and lightning costs energy.
+            fire = [bool(w and w.get("kind") == "gun") for w in (list(me["weapons"]) + [None, None])[:2]]
         if not engage["fire"] and engage["target"] is not None:
             # Letting go of a charging laser fires it along the current aim, into the cover
             # or at an opponent we chose to spare. Keep that trigger held, as v5 does while

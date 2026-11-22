@@ -91,6 +91,9 @@ class Engagement:
     THREAT_AIM_DEG = 12.0     # its torso aim within this angle of us counts as aiming at us
     THREAT_RANGE_M = 280.0    # the longest weapon reach (laser)
     LEAD_MIN_MPS = 0.5        # lead-shots: slower opponents are aimed at directly
+    FARM_S = 180.0            # farm-power: drones and crates are farmed only before this match time
+    HUNT_RANGE_M = 150.0      # farm-power: passive drones this close are shot when no mech is around
+    CRATE_RANGE_M = 150.0     # farm-power: visible crates this close are shot when no mech is around
 
     def __init__(self, hello, cover):
         config = hello["config"]
@@ -102,12 +105,17 @@ class Engagement:
         self.height = mech.get("height", 9)
         self.size_per_cube = config.get("cubes", {}).get("size_per_cube", 0.05)
         self.laser = config.get("weapons", {}).get("laser", {})
+        crates = config.get("crates", {})
+        self.crate_radius = crates.get("radius", 1.4)
+        self.crate_height = crates.get("height", 2.4)
         self.selector = StableTarget()
         self.attackers = {}   # id -> (time of last damage, bearing it came from or None)
         self.threats = {}     # id -> time it last pointed a weapon at us
         self.hits = {}        # id -> time we last damaged it
         self.decision = {}    # the last decision, for tests and debug drawing
         self.led = 0          # lead-shots: decisions whose aim was led, for local reports
+        self.drone_hunt = 0   # farm-power: decisions spent shooting a passive drone
+        self.crate_shots = 0  # farm-power: decisions spent shooting at a crate
 
     def observe(self, obs):
         now = obs["t"]
@@ -175,8 +183,9 @@ class Engagement:
         radius = self.radius * (1 + self.size_per_cube * other.get("cubes", 0))
         return sideways * distance / speed <= radius
 
-    def decide(self, obs):
-        """Return {target, aim, fire, reason}; aim is None when v5's aim should stand."""
+    def decide(self, obs, crates=True):
+        """Return {target, aim, fire, reason}; aim is None when v5's aim should stand.
+        crates=False keeps the farm-power crate shot off (bot.py passes it during a pickup detour)."""
         self.observe(obs)
         me_state, now = obs["self"], obs["t"]
         me = me_state["pos"]
@@ -185,14 +194,23 @@ class Engagement:
         weapons = me_state.get("weapons") or []
         reach = self.reach(weapons)
         scores, facts = {}, {}
+        # farm-power: in the first FARM_S of the match, with no game mech in sight and no mech
+        # hitting us, passive drones in range become targets; each kill drops 2 cubes (+4% HP
+        # and damage each, and upgrade offers at 1, 3, 6 and 10 cubes).
+        hunting = (now < self.FARM_S
+                   and not any(o.get("kind") == "mech" for o in obs.get("mechs") or ())
+                   and not any(isinstance(k, int) and 0 <= k < 100 for k in self.attackers))
         for other in obs.get("mechs") or ():
             key, kind = other.get("id"), other.get("kind")
-            if kind == "npc" and key not in self.attackers:
-                continue  # leave passive drones alone
             if kind not in ("mech", "npc"):
                 continue
             distance = math.dist(other["pos"], me)
+            hunt = kind == "npc" and key not in self.attackers
+            if hunt and not (hunting and distance <= self.HUNT_RANGE_M):
+                continue  # leave passive drones alone
             clear = self.cover.clear(muzzle, self.centre(other))
+            if hunt and not clear:
+                continue
             attacker = key in self.attackers
             threat = key in self.threats and distance <= self.THREAT_RANGE_M
             committed = key in self.hits
@@ -207,7 +225,7 @@ class Engagement:
                 score += self.SECOND_TIER_M
             scores[key] = score
             facts[key] = dict(other=other, distance=distance, clear=clear, attacker=attacker,
-                              threat=threat, committed=committed, fighting=fighting)
+                              threat=threat, committed=committed, fighting=fighting, hunt=hunt)
         target = self.selector.choose(now, scores)
         unseen = [seen for key, seen in self.attackers.items()
                   if key not in facts and seen[1] is not None]
@@ -219,7 +237,8 @@ class Engagement:
                 self.decision = dict(target=None, aim=[turn[1], 0.0], fire=False,
                                      reason="turn toward unseen attacker")
             else:
-                self.decision = dict(target=None, aim=None, fire=False, reason="no opponent")
+                self.decision = ((self.crate_shot(obs, me, muzzle, weapons) if crates else None)
+                                 or dict(target=None, aim=None, fire=False, reason="no opponent"))
             return self.decision
         fact = facts[target]
         other, distance = fact["other"], fact["distance"]
@@ -241,10 +260,12 @@ class Engagement:
             fire, reason = False, "hold: behind cover"
         elif distance > reach:
             fire, reason = False, "hold: out of range"
-        elif fact["fighting"] or distance <= self.close:
+        elif fact["fighting"] or distance <= self.close or fact["hunt"]:
             fire = True
             reason = ("attacker" if fact["attacker"] else "aiming at us" if fact["threat"]
-                      else "committed" if fact["committed"] else "close")
+                      else "committed" if fact["committed"] else "drone hunt" if fact["hunt"] else "close")
+            if fact["hunt"]:
+                self.drone_hunt += 1
         elif self.shots_land(other, me, distance, weapons):
             fire, reason = True, "open fire: shots land"
         else:
@@ -256,6 +277,42 @@ class Engagement:
                              clear=fact["clear"], centre=self.centre(other),
                              radius=radius, half_height=half_height)
         return self.decision
+
+    def crate_shot(self, obs, me, muzzle, weapons):
+        """farm-power: in the first FARM_S of the match, with no opponent to face (no game mech
+        listed, no turn toward an unseen attacker) and no mech (ids 0-99) hitting us in the last
+        ATTACK_MEMORY_S, aim the gun at
+        the nearest visible crate within CRATE_RANGE_M that has a clear line, at its centre.
+        A crate drops 1 cube and, half the time, a weapon. None when there is nothing to shoot.
+        target stays None, so the laser hold and release rules are untouched; bot.py fires only
+        the gun at a crate."""
+        if obs["t"] >= self.FARM_S:
+            return None
+        if any(isinstance(key, int) and 0 <= key < 100 for key in self.attackers):
+            return None
+        if not any(w and w.get("kind") == "gun" for w in weapons):
+            return None
+        best = None
+        for crate in obs.get("crates") or ():
+            x, y, z = crate["pos"]
+            centre = [x, y, z + self.crate_height / 2]
+            distance = math.dist(crate["pos"], me)
+            if distance > self.CRATE_RANGE_M:
+                continue
+            if best is not None and (distance, crate["id"]) >= (best[0], best[1]["id"]):
+                continue
+            if not self.cover.clear(muzzle, centre):
+                continue
+            best = (distance, crate, centre)
+        if best is None:
+            return None
+        distance, crate, centre = best
+        flat = max(math.dist(centre[:2], me[:2]), 1e-6)
+        aim = [math.atan2(centre[1] - me[1], centre[0] - me[0]), math.atan2(centre[2] - muzzle[2], flat)]
+        self.crate_shots += 1
+        return dict(target=None, crate=crate["id"], aim=aim, fire=True, reason="crate shoot",
+                    distance=distance, clear=True, centre=centre, radius=self.crate_radius,
+                    half_height=self.crate_height / 2)
 
     def lead_point(self, other, muzzle, weapons):
         """The horizontal point where a gun bullet fired now meets the opponent moving at its

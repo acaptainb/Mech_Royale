@@ -285,6 +285,14 @@ def distant_passive_npc():
     return [frame(k, [npc(104, 300, 120)]) for k in range(20)]
 
 
+def distant_passive_npc_late():
+    """The same drone after 180 s of match time, when farm-power no longer farms."""
+    frames = distant_passive_npc()
+    for f in frames:
+        f["t"] = round(f["t"] + 200.0, 2)
+    return frames
+
+
 def unseen_attacker():
     """Hit from behind by a mech that is not listed; the evidence ages out after 5 s."""
     return [frame(k, [], [damaged(9, 250)] if k == 0 else [], hp=1355) for k in range(70)]
@@ -407,6 +415,9 @@ SCENARIOS = {
     "drone attacker, mech aiming at us": (drone_attacker_and_mech_aiming,
         lambda r: all(row["target"] == 3 and row["fire"] for row in r), "the mech outranks the drone"),
     "distant passive NPC": (distant_passive_npc,
+        lambda r: all(row["target"] == 104 and row["fire"] for row in r),
+        "farm-power: shoots it (first 180 s, no mech around, within 150 m)"),
+    "distant passive NPC after 180 s": (distant_passive_npc_late,
         lambda r: not any(row["fire"] for row in r) and all(row["same_aim"] for row in r),
         "ignores it, like v5"),
     "unseen attacker behind us": (unseen_attacker,
@@ -634,7 +645,7 @@ class Exact:
 
 RULES = [
     "R0 act() never raises and the action is valid JSON",
-    "R1 never shoot a drone that has not hit us",
+    "R1 never shoot a drone that has not hit us, except farm-power: first 180 s, no mech listed, none hit us in 5 s, within 150 m",
     "R2 a recent clear attacker beats passive mechs at most 25 m closer",
     "R3 the emitted aim matches the chosen opponent",
     "R4 prompt release: never the vanished opponent, and a listed one or the attacker bearing next",
@@ -705,9 +716,13 @@ def heldout(seed, cases=400):
             target = next((o for o in listed if o["id"] == chosen), None)
             distance = math.dist(target["pos"], me) if target else None
             recent_attack = attacker is not None and last_hit is not None and obs["t"] - last_hit <= 5.0
-            # R1
+            # R1 (farm-power: in the first 180 s a passive drone within 150 m may be shot while
+            # no game mech is listed and no mech has hit us within the 5 s attack memory)
+            farm_ok = (obs["t"] < 180.0 and distance is not None and distance <= 150.0
+                       and not any(o["kind"] == "mech" for o in listed)
+                       and not (recent_attack and attacker["kind"] == "mech"))
             if target and target["kind"] == "npc" and fired and not (
-                    recent_attack and attacker["id"] == target["id"]):
+                    recent_attack and attacker["id"] == target["id"]) and not farm_ok:
                 fail(RULES[1], (case, k))
             # R2
             if (attacker and attacker["kind"] == "mech" and last_hit is not None
