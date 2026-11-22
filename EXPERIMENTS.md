@@ -404,7 +404,7 @@ dodge-tuned takes the setting that lowers both total hits and the hit rate with 
 
 **When it applies (practice mode):** after 20 s of match time while every death so far was our own kill (the first `alive` minus the current `alive` minus our `kill` events). Five decisions in a row with a death we did not cause switch it off for the rest of the match. Outside practice mode every decision is farm-power's, including its first-180 s farming. Practice seeds are fixed, so a match where the mode switches off before 20 s plays exactly as it did for farm-power.
 
-**The change** (`squad.py`, wired into `bot.py`; `Engagement.decide` gets a `farm` switch that turns its own drone hunt and crate shot off in practice mode; `Dockerfile` copies `squad.py`):
+**The change** (`squad.py`, wired into `bot.py`; `Engagement.decide` gets a `farm` switch that turns its own drone hunt and crate shot off in practice mode; `Dockerfile` and `.dockerignore` include `squad.py`):
 - **Economy all match.** The loot target maximises value / (distance + 18), x1.35 for the current target. Every candidate is within 260 m, inside the current circle with 6 m to spare, reachable before its zone deadline (now + 1.4 x distance / walk speed + 5 s), at most 3.2 m above the terrain (no roofs or decks) and within 12 m of a walkable grid cell.
   - Cubes within 105 m: value 75, or 25 from 10 cubes. No HP or danger condition.
   - Crates within 150 m (0.6 x the cube value, so 45) and drones seen in the last 12 s within 150 m (85, under 10 cubes): only above 50 % HP and with no danger (an engaged mech seen in the last 2.5 s, or any hit in the last 4 s).
