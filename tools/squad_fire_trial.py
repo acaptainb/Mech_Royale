@@ -536,7 +536,7 @@ def mode_switch(folder):
     during = [k for k in d if 200 < k < 350]
     after = [k for k in d if k >= 355]
     print(f"   same, a death we did not cause at 35 s: differs on {len(during)}/149 decisions at 20.1-34.9 s,"
-          f" identical from 35.5 s on ({100 - len(after)}/95 identical)"
+          f" identical from 35.5 s on ({95 - len(after)}/95 identical)"
           f"  {check(len(during) > 100 and not after, 'mode switch: outside death in practice')}")
     d = compare(folder, lambda k: rich(k, alive_from=300, kill_from=301), 450)
     late = [k for k in d if k >= 305]
@@ -594,7 +594,7 @@ def fight(folder, path, seed, with_laser, seconds=25.0):
     state, hp_them, hp_us = {}, 1400.0, 1400.0
     ours, theirs, events = [], [], []
     shots = hits = beams = beam_hits = 0
-    kill_at, aim, commanded, fire = None, [0.0, 0.0], [0.0, 0.0], [False, False]
+    kill_at, aim, commanded, fire, first = None, [0.0, 0.0], [0.0, 0.0], [False, False], None
     pos, vel = path(0.0, state)
     for tick in range(int(seconds / 0.05)):
         t = tick * 0.05
@@ -616,6 +616,8 @@ def fight(folder, path, seed, with_laser, seconds=25.0):
             action = bot.act(obs)
             events = []
             fire = list(action.get("fire") or [False, False])
+            if first is None and (fire[0] or (beam is not None and fire[1])):
+                first = round(t, 2)
             commanded = list(action.get("aim") or commanded)
             if action.get("reload") and gun["reload"] == 0 and gun["ammo"] < GUN["mag"]:
                 gun["reload"] = GUN["reload"]
@@ -710,7 +712,7 @@ def fight(folder, path, seed, with_laser, seconds=25.0):
             kill_at = round(t, 2)
             break
     bot.close()
-    return dict(shots=shots, hits=hits, beams=beams, beam_hits=beam_hits, kill_at=kill_at,
+    return dict(shots=shots, hits=hits, beams=beams, beam_hits=beam_hits, kill_at=kill_at, first=first,
                 taken=round(1400 - hp_us), dealt=round(1400 - max(hp_them, 0)))
 
 
@@ -723,11 +725,13 @@ def fights(folder):
         ("in to 150 m, then strafing every 1 s", lambda: hunter_path(SIDE, 150, flip_s=1.0)),
     ]
     totals = {}
-    print(f"   {'loadout / path / seed':52}{'gun hits':>12}{'beams on':>12}{'kill at s':>16}{'damage taken':>16}")
-    print(f"   {'':52}{'base | squad':>12}{'base | squad':>12}{'base | squad':>16}{'base | squad':>16}")
+    print("   (the hunter dies at 1400 damage: 32 gun hits alone, or 3 beams and about 11 hits)")
+    print(f"   {'loadout / path / seed':50}{'gun hits/shots':>18}{'beams on':>11}{'1st trigger s':>14}"
+          f"{'kill at s':>13}{'damage taken':>14}")
+    print(f"   {'':50}{'base | squad':>18}{'base|squad':>11}{'base | squad':>14}{'base | squad':>13}{'base | squad':>14}")
     for with_laser in (False, True):
         loadout = "gun + laser" if with_laser else "gun only"
-        agg = totals.setdefault(loadout, dict(base=[0, 0, 0, 0.0, 0], cand=[0, 0, 0, 0.0, 0]))
+        agg = totals.setdefault(loadout, dict(base=[0, 0, 0, 0.0, 0, 0], cand=[0, 0, 0, 0.0, 0, 0]))
         for name, make in paths:
             for seed in (11, 12):
                 b = fight(folder, make(), seed, with_laser)
@@ -738,17 +742,20 @@ def fights(folder):
                     agg[key][2] += r["kill_at"] is not None
                     agg[key][3] += r["kill_at"] if r["kill_at"] is not None else 25.0
                     agg[key][4] += r["taken"]
+                    agg[key][5] += r["shots"]
                 kill = lambda r: "-" if r["kill_at"] is None else f"{r['kill_at']:.1f}"
-                print(f"   {loadout + ' / ' + name + ' / ' + str(seed):52}{b['hits']:>5} | {c['hits']:<5}"
-                      f"{b['beam_hits']:>3}/{b['beams']:<2}| {c['beam_hits']}/{c['beams']:<3}"
-                      f"{kill(b):>7} | {kill(c):<7}{b['taken']:>7} | {c['taken']:<7}")
+                first = lambda r: "-" if r["first"] is None else f"{r['first']:.1f}"
+                print(f"   {loadout + ' / ' + name + ' / ' + str(seed):50}"
+                      f"{str(b['hits']) + '/' + str(b['shots']):>8} | {str(c['hits']) + '/' + str(c['shots']):<7}"
+                      f"{b['beam_hits']:>3}/{b['beams']}|{c['beam_hits']}/{c['beams']:<3}"
+                      f"{first(b):>6} | {first(c):<5}{kill(b):>6} | {kill(c):<5}{b['taken']:>6} | {c['taken']:<5}")
                 if c["shots"] == 0:
                     FAILURES.append(f"fight: candidate never fired ({loadout}, {name}, {seed})")
     for loadout, agg in totals.items():
         b, c = agg["base"], agg["cand"]
         print(f"   {loadout:12} totals over 6 fights: kills {b[2]} | {c[2]}, mean kill time (25 s if none)"
-              f" {b[3] / 6:.1f} | {c[3] / 6:.1f} s, gun hits {b[0]} | {c[0]}, beams on target {b[1]} | {c[1]},"
-              f" damage taken {b[4]} | {c[4]}")
+              f" {b[3] / 6:.1f} | {c[3] / 6:.1f} s, gun hits/shots {b[0]}/{b[5]} | {c[0]}/{c[5]},"
+              f" beams on target {b[1]} | {c[1]}, damage taken {b[4]} | {c[4]}")
 
 
 # --- 8. timing and fuzz --------------------------------------------------------------------------

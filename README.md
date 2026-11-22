@@ -86,3 +86,14 @@ Built on mortar-dodge (`1645c22`, official 3.00). The v8 bullet dodge steps asid
 ## farm-power
 
 Built on dodge-tuned (`dd9b731`, official 3.10). In the first 180 s, with nobody around, the bot shoots passive drones and crates within 150 m and walks to cubes within 120 m, so it is stronger when the hunters come (`farm.py`, `targeting.py`). Run `py tools/farm_trial.py`.
+
+## squad-fire
+
+Built on farm-power (`8064167`, official 3.25). In practice matches, where the 15 house bots hunt us together and only our kills score, it changes what the bot shoots and how it pulls each trigger (`squad.py`). Practice mode starts after 20 s of match time and lasts while every death so far is one of our kills; outside it the bot is farm-power exactly, and movement and the dodges never change.
+
+- Only engaged mechs are shot or looked at: within 60 m, hit us in the last 6 s, late in the match, closing faster than 3 m/s within 180 m, under 40% HP within 160 m, or aiming at us within 190 m.
+- The target is the engaged mech in clear view within 240 m with the lowest distance + 0.2 x HP, with bonuses for low HP, for being the current target, for hitting us and for closing.
+- The laser is released early when the charge already kills, and a full charge only with the torso on the body; the gun fires when the torso can reach the lead point; lightning only inside its range and cone.
+- Laser over lightning (sought from 240 m, swapped in for lightning), never a mortar, and a laser-first upgrade order.
+
+Run `py tools/squad_fire_trial.py` (scenarios against the exported parent, a closed-loop fight, timing and a fuzz pass; `--quick` skips the fight).
