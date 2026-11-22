@@ -27,7 +27,13 @@ Practice seeds are fixed for the whole event and the bot is deterministic. A ver
 | no-mortar | `no-mortar` | `df1be152ba1bee40a368979ccb01eef1b7f9b347` | `3b290b0` (2.63) | 2.58 | -0.05 |
 | lead-shots | `lead-shots` | `4d8a32d3c453d3efb430baddb4bd141678417d77` | `3b290b0` (2.63) | **2.90** | +0.27 |
 | lead-shots + no-mortar | `lead-no-mortar` | `23b95d79841b9b2368f72f879c158d9084f065b1` | `4d8a32d` (2.90) | not submitted (no-mortar lost) | n/a |
-| crossing-fire | `crossing-fire` | this commit (tag `crossing-fire-candidate`) | `4d8a32d` (2.90) | pending | pending |
+| crossing-fire | `crossing-fire` | `c1200411b37163ea2496aefbb861a496d2bcea12` | `4d8a32d` (2.90) | **2.94** (entered in the final) | +0.04 |
+| offense-upgrades | `offense-upgrades` | `bb0e5e0dc51f8f75356a726230ca080da66706d3` | `4d8a32d` (2.90) | 2.85 | -0.05 |
+| laser-cover | `laser-cover` | `1961af48491445c4d10d88c767f901d163a98668` | `4d8a32d` (2.90) | 2.90 | +0.00 (most likely never fired in practice) |
+| chase-wounded | `chase-wounded` | `ef880813566961c48504d37db14e2e8234a8f3ef` | `4d8a32d` (2.90) | 2.75 | -0.15 |
+| plating-first | `plating-first` | `4ec3f8a664f39b2d0922f00b21a44ff3a7336575` | `c120041` (2.94) | pending | pending |
+| sensors-first | `sensors-first` | `71cda0dd1792272d8dcc3fbf053fc4f004502d7a` | `c120041` (2.94) | pending | pending |
+| hide-spot | `hide-spot` | this commit (tag `hide-spot-candidate`) | `c120041` (2.94) | pending | pending |
 
 ## Log
 
@@ -47,7 +53,8 @@ Practice seeds are fixed for the whole event and the bot is deterministic. A ver
 | duel-weave | `3b290b0` | not a candidate | angling the waypoint 20 degrees, alternating sides, in a clear duel keeps progress and cuts hits | eligible on 115 of 300 recording decisions; the move changed on all 115 | 16 held-out routes: 16/16 finished, but 570 hits vs 554 for 2.63 and safety 0.8 s later | not submitted | gate not passed: more hits than 2.63 |
 | lead-shots | `3b290b0` | this commit (tag `lead-shots-candidate`) | aiming the gun where a moving opponent will be when the bullet arrives lands more hits, so we kill more of the house bots that hunt us before we die | every decision with a moving opponent: aim led on 169 of 300 recording decisions | hits 56 to 109 of 130 shots (43% to 84%) in a closed-loop gunfight; never fewer; laser still released onto a moving target; only the aim changes | **2.90 (+0.27)** | **keep: best score so far** |
 | lead-shots + no-mortar | `4d8a32d` | this commit (tag `lead-no-mortar-candidate`) | not carrying a mortar adds to leading the gun | as in no-mortar | the no-mortar trial against `4d8a32d` matches no-mortar's own result; the lead trial against `3b290b0` matches lead-shots exactly (109 of 130) | not submitted | dropped: no-mortar alone scored 2.58 |
-| crossing-fire | `4d8a32d` | this commit (tag `crossing-fire-candidate`) | now that the gun is led, firing on passive opponents that unled shots would have missed lands hits v6 gave away | 8 of 300 recording decisions (all of v6's "passive, shots would miss" holds); every passive opponent walking across our view in a match | passive crossing opponents: 0 to 9-14 hits per 6 s (80-93%); zigzagging: 60-67%; controls identical; only the fire command changes | pending | pending your score |
+| crossing-fire | `4d8a32d` | this commit (tag `crossing-fire-candidate`) | now that the gun is led, firing on passive opponents that unled shots would have missed lands hits v6 gave away | 8 of 300 recording decisions (all of v6's "passive, shots would miss" holds); every passive opponent walking across our view in a match | passive crossing opponents: 0 to 9-14 hits per 6 s (80-93%); zigzagging: 60-67%; controls identical; only the fire command changes | **2.94 (+0.04)** | **keep: best score; parent of the positioning round** |
+| hide-spot | `c120041` | this commit (tag `hide-spot-candidate`) | placement is the whole score, so waiting at a sheltered node near the zone centre instead of in the open on the centre lets the house squad see us later and shoot us less | in plain zone mode wherever the least exposed node within 60 m of the next centre is at least 0.10 less exposed than the centre (185 of 300 random centres); 0 of 299 recording decisions (its centre, 0.25, has nothing clearly better) | where we stand: exposure 0.58 to 0.34 (18 of 18 activating runs lower); three scripted hunters: first seen 0.45 to 2.75 s (patrol) and 3.35 to 46.65 s (omniscient), damage -5% and -25%, deaths 9 to 10 and 7 to 5 of 12; controls identical | pending | pending your score |
 | no-mortar | `3b290b0` | `df1be15` (tag `no-mortar-candidate`) | never carrying a mortar helps: we cannot aim it, and holding one makes every laser hit on us cook off for +60% | whenever v5 would detour for or walk over a mortar (a third of floor weapons); 0 on the recording (no mortar within 70 m) | never carries a mortar in any layout; takes a laser instead when one is near; control identical | 2.58 (-0.05) | revert: the mortar is worth carrying (see below) |
 
 ## v6: selective engagement
@@ -285,6 +292,49 @@ Evidence (`py tools/crossing_fire_trial.py`: the lead-shots gunfight with oppone
   - "committed" lasts 3 s after our hit.
 - **Narrowed recording checks:** the lead trial ignores fire, and the laser trial ignores this both-slots opening fire.
 - **Other checks:** the laser trial against v8, the engagement held-out seeds, the dodge trial, combo check, objective checks, route, pickup and target trials, the probe and `verify.py` all pass.
+
+## hide-spot (on `c120041`, the 2.94 commit)
+
+The score is 16 minus our place, and place is the death order. The practice squad (15 house bots) shares vision, never fights itself, and hunts us. In plain zone mode crossing-fire walks to the next circle's centre and stands there in the open, wherever that is.
+
+The change: in plain zone mode the goal becomes the least exposed walkable node near the next centre, and the bot holds still on it. Everything else is unchanged: combat, aim and fire, the dodge (still last), the return, drop and relocation modes, and pickup and cube precedence.
+
+- **Exposure map:** `exposure.u8`, built by `py tools/build_exposure.py` in about 7 s on 16 cores. For every navigation node it stores the share of 24 bearings × 40/100/180 m observer positions whose eye (ground + 8 m) has a clear line on the cover map to a mech's centre or top there. Observers count only on walkable nodes. Walkable-node quartiles are 0.29, 0.46 and 0.60.
+- **Choosing the spot:**
+  - Candidates are walkable nodes within 60 m of the next centre, within 100 m of it on foot on the ground grid, and 8 m inside the next circle.
+  - The ranking is exposure plus 0.05 per 60 m of distance from the centre.
+  - The spot is used only if it is at least 0.10 less exposed than the centre node.
+  - It is searched once per next circle (under 2 ms), and only while no mech is listed and none has hit us for 5 s.
+  - Once chosen, it stays the goal for that circle even when an opponent shows up, because walking out of shelter to the open centre mid-fight defeats the point.
+- **Timing:** outside the next circle, walking there must still leave the pickup detour's margin (walk time + 5 s + 8 s before the shrink). Otherwise the existing zone return takes over.
+- **Holding still:** on the spot (within 1.5 m) the inherited stuck check is reset, since it would otherwise sidestep and jump every 1.2 s away from the centre.
+- **New files:** `hide.py` and `exposure.u8`, both added to the Dockerfile and `.dockerignore`. A new `.gitattributes` marks `*.u8` as binary, so a Windows checkout with autocrlf keeps the raster byte for byte.
+
+Evidence (`py tools/hide_trial.py`): crossing-fire exported from `c120041` against this tree, both as real bot processes from identical starts. The simulation is a closed loop on the ground grid, with vision as in the rules on the cover map; trees are not modelled.
+
+| Measure | crossing-fire | hide-spot |
+| --- | --- | --- |
+| exposure where it stands, last 20 s of 40 s, 18 zones with a spot (independent 36 × 4 observer sample) | 0.58 | 0.34 (lower in 18 of 18) |
+| same, 6 zones with no clearly better spot (control) | 0.33 | 0.33 (identical actions) |
+| three patrolling hunters, 12 × 90 s: median first seen | 0.45 s | 2.75 s |
+| same: damage taken, deaths | 15,885, 9 of 12 | 15,030, 10 of 12 |
+| three hunters walking at our true position, 12 × 90 s: median first seen | 3.35 s | 46.65 s |
+| same: damage taken, deaths | 11,385, 7 of 12 | 8,572, 5 of 12 |
+
+- **Simulated hunters:** they shoot only while they see us (45 per hit, hit chance falling with distance, ×1.5 from behind), and our own shots are not simulated, so most episodes end in death either way.
+- **Rear hits:** in the patrol variant rear hits rose from 44 to 50. The aim still faces the zone centre while hiding, so hunters arriving from behind the nook get the rear arc.
+- **Controls, identical on every decision:**
+  - 4 urgent zone returns, compared while the return lasts; once 3 m inside the next circle the hide spot takes over, as intended;
+  - 4 with an opponent listed from the start;
+  - 4 walking to a supply drop at 60% HP.
+- **Timing:** p99 0.9 ms, max 3.4 ms over 23,188 candidate decisions.
+- **Recording:** 0 of 299 decisions differ.
+- **Narrowed checks:** each of these treated "stands on the zone centre" as the goal; each now also accepts standing on `bot.hide.spot`:
+  - `objective_checks.py`: the "zone, no drop: no movement" case now expects walking to the spot and then holding still on it.
+  - `route_trial.py`: 51 to 150 of 150 reached once arrival on the spot counts.
+  - `pickup_trial.py`: "reached the zone goal".
+- **Unchanged checks that pass:** pickup acquisitions and zone misses match.
+- **Other checks:** the engagement trial and held-out seeds, the crossing-fire, lead, laser and dodge trials, combo check, target trial, the probe and `verify.py` all pass.
 
 ## Next experiment: laser trigger discipline (#3)
 

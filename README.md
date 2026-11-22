@@ -78,3 +78,7 @@ Built on the 2.63 commit (`3b290b0`). The gun aims where a moving opponent will 
 ## crossing-fire
 
 Built on lead-shots (`4d8a32d`, official 2.90). When the gun's aim is led, the bot also fires at passive opponents that v6 held fire on because unled shots would miss. Run `py tools/crossing_fire_trial.py` to compare against lead-shots.
+
+## hide-spot
+
+Built on crossing-fire (`c120041`, official 2.94). In plain zone mode the bot no longer stands in the open on the next circle's centre. It walks to the least exposed walkable node within 60 m of the centre (and within 100 m of it on foot, 8 m inside the next circle), and holds still there. It only does this where that node is at least 0.10 less exposed than the centre. `exposure.u8` is precomputed by `py tools/build_exposure.py`: for every navigation node, the share of 24 bearings × 40/100/180 m observer positions that would see a mech standing there on the cover map. The spot is searched once per circle, and only while no mech is listed and none has hit us for 5 s. Run `py tools/hide_trial.py` to compare against crossing-fire.

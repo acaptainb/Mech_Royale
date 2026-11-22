@@ -5,6 +5,7 @@ import mechfight as mf
 from cover import Cover
 from dodge import Dodge
 from first_run import Bot as FirstRun
+from hide import HideSpot
 from loot import PickupDetour
 from navigation import Navigator
 from objectives import Objectives
@@ -12,7 +13,7 @@ from targeting import Engagement
 
 
 class Bot(FirstRun):
-    name = "zone-runner-crossing-fire"
+    name = "zone-runner-hide-spot"
 
     def __init__(self, hello):
         super().__init__(hello)
@@ -21,6 +22,7 @@ class Bot(FirstRun):
         self.loot = PickupDetour(hello)
         self.engagement = Engagement(hello, Cover())
         self.dodge = Dodge(hello, self.nav)
+        self.hide = HideSpot(hello, self.nav)
 
     def act(self, obs):
         action = super().act(obs)
@@ -28,6 +30,11 @@ class Bot(FirstRun):
         x, y, z = me["pos"]
         goal = self.objectives.choose(obs, self.nav)
         mode = self.objectives.mode
+        # hide-spot: in plain zone mode, wait at the least exposed node near the next centre
+        # instead of standing in the open on the centre itself (see hide.py).
+        spot = self.hide.choose(obs, mode)
+        if spot is not None:
+            goal = spot
         waypoint = self.nav.waypoint(me["pos"], goal)
         # Zone return, supply drops and relocation keep priority: a pickup is only
         # considered while the plain zone objective is active.
@@ -48,6 +55,11 @@ class Bot(FirstRun):
                         and self.nav.clear_segment(me["pos"], at)):
                     waypoint = at[:2]
                     break
+        if spot is not None and mode == "zone" and math.dist((x, y), spot) <= self.hide.HOLD_M:
+            # hide-spot: hold still on the spot; the inherited stuck check would otherwise
+            # sidestep and jump every 1.2 s because we are not on the zone centre.
+            self.sample_pos, self.detour_until = None, 0.0
+            self.hide.holds += 1
         dx, dy = waypoint[0]-x, waypoint[1]-y
         length = math.hypot(dx, dy)
         recovering = obs["t"] < self.detour_until

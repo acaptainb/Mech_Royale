@@ -36,6 +36,7 @@ def scenario(change, expected, movement=None, damage=False):
     if movement is not None:
         assert (math.hypot(*a["move"]) > 0.5) == movement
     passed += 1
+    return b, o, a
 
 scenario(lambda o,d: None,"drop",True)
 scenario(lambda o,d:d.update(pos=[x+2,y,0],holder=o["self"]["id"],progress=2),"drop",False)
@@ -46,7 +47,17 @@ scenario(lambda o,d:o["self"].update(hp=990),"zone")
 scenario(lambda o,d:o["self"].update(in_zone=False),"return")
 scenario(lambda o,d:o["zone"].update(next_radius=0),"return")
 scenario(lambda o,d:o.update(drops=[]),"relocate",True,damage=True)
-scenario(lambda o,d:o.update(drops=[]),"zone",False)
+# hide-spot: with the drop gone the zone objective stands still on its goal. That goal is the
+# sheltered spot when the search finds one (walk there, then hold still on it), else the centre.
+b, o, a = scenario(lambda o,d:o.update(drops=[]),"zone")
+if b.hide.spot is None:
+    assert math.hypot(*a["move"]) <= 0.5
+else:
+    assert math.hypot(*a["move"]) > 0.5
+    o["self"]["pos"] = [b.hide.spot[0], b.hide.spot[1], 0]
+    o["t"] += 0.1
+    a = b.act(o)
+    assert b.objectives.mode == "zone" and math.hypot(*a["move"]) <= 0.5
 scenario(lambda o,d:o["zone"].update(next_center=[x+200,y],shrink_start=0),"return",damage=True)
 scenario(lambda o,d:o.update(mechs=[dict(kind="mech",id=98,pos=d["pos"])]),"zone")
 print(passed,"objective checks passed")
