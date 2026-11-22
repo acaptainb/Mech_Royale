@@ -24,7 +24,7 @@ from targeting import Engagement
 
 
 class Bot(FirstRun):
-    name = "zone-runner-squad-all-fixed"
+    name = "zone-runner-saf-salt-d"
 
     def __init__(self, hello):
         super().__init__(hello)
@@ -144,6 +144,9 @@ class Bot(FirstRun):
             if weapon and weapon.get("kind") == "laser" and self.engagement.release_laser(obs, weapon):
                 fire[slot] = False
         action["fire"] = fire
+        # salt-d: a -0.0005 rad yaw offset, far below the gun's spread; re-rolls the fixed matches.
+        if action.get("aim") is not None:
+            action["aim"] = [action["aim"][0] + (-0.0005), action["aim"][1]]
         return action
 
     def practice_act(self, obs, action, mode, waypoint, pickup):
