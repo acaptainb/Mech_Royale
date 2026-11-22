@@ -4,6 +4,7 @@ import math
 import mechfight as mf
 from cover import Cover
 from first_run import Bot as FirstRun
+from hold import Hold
 from loot import PickupDetour
 from navigation import Navigator
 from objectives import Objectives
@@ -11,7 +12,7 @@ from targeting import Engagement
 
 
 class Bot(FirstRun):
-    name = "zone-runner-v6"
+    name = "zone-runner-v12"
 
     def __init__(self, hello):
         super().__init__(hello)
@@ -19,6 +20,7 @@ class Bot(FirstRun):
         self.objectives = Objectives()
         self.loot = PickupDetour(hello)
         self.engagement = Engagement(hello, Cover())
+        self.hold = Hold(self.engagement.cover)
 
     def act(self, obs):
         action = super().act(obs)
@@ -37,6 +39,7 @@ class Bot(FirstRun):
                     and not any(other["kind"] == "mech" for other in obs["mechs"])):
                 # Face the pickup so it stays inside the vision wedge.
                 action["aim"] = [math.atan2(pickup[1]-y, pickup[0]-x), 0.0]
+        chasing_cube = False
         if mode == "zone" and me["in_zone"] and not obs["mechs"]:
             nearby = sorted(obs["cubes"], key=lambda item: math.dist(item["pos"], me["pos"]))
             for cube in nearby:
@@ -45,6 +48,7 @@ class Bot(FirstRun):
                         and math.dist(at[:2], zone["next_center"]) + 4 < zone["next_radius"]
                         and self.nav.clear_segment(me["pos"], at)):
                     waypoint = at[:2]
+                    chasing_cube = True
                     break
         dx, dy = waypoint[0]-x, waypoint[1]-y
         length = math.hypot(dx, dy)
@@ -56,6 +60,12 @@ class Bot(FirstRun):
         walk_time = max(0,distance_to_safe) / max(1,me["stats"]["walk_speed"])
         late = distance_to_safe > 0 and obs["t"] + walk_time + 4 > zone["shrink_start"]
         action["boost"] = (late or not me["in_zone"]) and me["energy"] > 15
+        # v12: hold still beside cover while comfortably safe with nothing else to do.
+        if self.hold.steer(obs, action, mode=mode, chasing_cube=chasing_cube, recovering=recovering,
+                           loot=self.loot, engagement=self.engagement):
+            # Standing still on purpose is not being stuck: restart the obstacle-recovery
+            # sampling so it does not mistake the hold for a jam.
+            self.sample_pos = None
         if obs["offer"]:
             priorities = ("armor","plating","nanites","servos","gun_rate","sensors")
             choices = obs["offer"]["choices"]

@@ -58,3 +58,7 @@ py tools/engagement_trial.py            # v5 and v6 on identical observations, j
 py tools/engagement_trial.py --heldout  # randomized encounters checked against rules with exact map geometry
 py tools/engagement_probe.py            # the running bot (or --docker: the match container) uses v6
 ```
+
+## Version 12 hold beside cover
+
+V12 changes one behaviour on the 2.08 baseline (`1a0ca39`). When the mech is comfortably inside the current and next circles, has solid cover within 8 m, and has nothing else to do (no opponent, attacker, pickup, cube, recovery, return or supply objective), it holds its position instead of walking on to the zone centre (`hold.py`). It resumes normal movement on the first decision any condition fails. `py tools/hold_trial.py` compares the exported baseline and this tree as real bot processes, and `py tools/no_hold.py <trial>` runs another trial with only the hold switched off.
