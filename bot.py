@@ -25,7 +25,7 @@ from targeting import Engagement
 
 
 class Bot(FirstRun):
-    name = "zone-runner-squad-all-zone"
+    name = "zone-runner-squad-final"
 
     def __init__(self, hello):
         super().__init__(hello)

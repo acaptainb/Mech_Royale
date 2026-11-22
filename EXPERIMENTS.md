@@ -666,3 +666,7 @@ The parent walks straight in (camp walk, no dodges) and is inside the circle at 
 | `py tools/engagement_probe.py` | pass |
 
 No existing expectation changed. `tools/squad_move_trial.py`'s world now also accepts the zone as a function of match time, can apply zone damage, and records hit times and whether each decision was inside the circle; its existing calls behave as before.
+
+## squad-final (on `c6e4f47`, squad-all-zone)
+
+Official results: squad-all-fixed 4.70 (salted copies 4.78 and 4.69), squad-sticky-fixed 4.48, squad-all-zone 5.17 (best). One change: practice mode starts at 1 s instead of 20 s (`practice.py` `START_S`), so the practice design's looting, camping and engagement rules run from the start of the match instead of after 19 s of the older behaviour. The detector still switches it off after three deaths we did not cause. Checks: probe and replay pass (the recording now runs in practice mode from 1 s), 6,000 random decisions with no errors.

@@ -17,7 +17,7 @@ class PracticeMode:
     squad-sticky: in the practice match a house bot occasionally dies to a drone or the zone while
     the rest of the squad still hunts us; one such death no longer drops the practice design. In a
     free-for-all mechs die to each other quickly, so three outside deaths still switch it off."""
-    START_S = 20.0
+    START_S = 1.0    # squad-final: the practice design starts almost at once (was 20 s)
     OUTSIDE_TICKS = 5
     OUTSIDE_DEATHS = 3
 
