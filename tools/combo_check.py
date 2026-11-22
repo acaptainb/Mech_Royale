@@ -52,9 +52,18 @@ def main():
             print(f"{name if label == 'v7' else '':52}{label:8}{str([round(v, 2) for v in a['move']]):>18}"
                   f"{str(a.get('boost')):>7}{str(a.get('fire')):>16}")
         combo = answers["v8+v7"]
-        ok = (combo["move"] == answers["v8"]["move"] and combo.get("boost") == answers["v8"].get("boost")
-              and combo.get("fire") == answers["v7"].get("fire"))
-        print(f"{'':52}{'check':8}  {'ok: moves as v8, fires as v7' if ok else 'FAIL'}")
+        # kite-distance: on a decision where backing away owns the move (an in-process copy of
+        # this tree reports it), move and boost are not compared with v8; fire still is.
+        import mechfight as mf
+        mf.draw.line = mf.draw.point = mf.draw.label = lambda *args: None
+        from bot import Bot
+        local = Bot(et.HELLO)
+        local.act(copy.deepcopy(obs))
+        kiting = getattr(local, "kite", None) is not None and local.kite.active and not local.dodge.active
+        moves = kiting or (combo["move"] == answers["v8"]["move"] and combo.get("boost") == answers["v8"].get("boost"))
+        ok = moves and combo.get("fire") == answers["v7"].get("fire")
+        text = ("ok: kite owns the move, fires as v7" if kiting else "ok: moves as v8, fires as v7") if ok else "FAIL"
+        print(f"{'':52}{'check':8}  {text}")
         if not ok:
             failures.append(name)
     if failures:

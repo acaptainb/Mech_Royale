@@ -82,3 +82,7 @@ Built on lead-shots (`4d8a32d`, official 2.90). The bot steps out of the blast o
 ## mortar-dodge + crossing-fire
 
 Built on mortar-dodge (`1645c22`, official 3.00) with crossing-fire's change (`c120041`, official 2.94) added unchanged: the shell dodge owns movement when a mortar shell threatens the route, and the gun also fires at a passive opponent when its aim is led. Run `py tools/combo_md_cf_check.py` to check that it moves exactly as mortar-dodge and fires exactly as crossing-fire.
+
+## kite-distance on the 3.04 commit
+
+Built on mortar-dodge + crossing-fire (`4f4596e`, official 3.04) with kite-distance (`1e6cffe`) added unchanged: when a house mech that is fighting us, aiming at us or walking at us is within 70 m, the move backs away from it (with part of the zone heading kept), before the bullet dodge and the shell dodge, which keep the final say. Run `py tools/kite_trial.py`.
