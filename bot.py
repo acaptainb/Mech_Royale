@@ -12,7 +12,7 @@ from targeting import Engagement
 
 
 class Bot(FirstRun):
-    name = "zone-runner-v8+v7"
+    name = "zone-runner-lead-shots"
 
     def __init__(self, hello):
         super().__init__(hello)

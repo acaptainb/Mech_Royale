@@ -447,6 +447,25 @@ def identify(action, obs):
     return best[1] if best else None
 
 
+def aims_ahead_of(action, obs, target, speed=None):
+    """Does the emitted yaw point within 3 degrees of where a gun bullet fired now would meet
+    `target` moving at its current velocity? Solved here independently of the bot."""
+    yaw = (action.get("aim") or [None])[0]
+    if yaw is None or target is None:
+        return False
+    speed = speed or WEAPONS["gun"]["speed"]
+    me = obs["self"]["pos"]
+    rx, ry = target["pos"][0] - me[0], target["pos"][1] - me[1]
+    vx, vy = (target.get("vel") or [0, 0])[:2]
+    a, b, c = vx * vx + vy * vy - speed * speed, 2 * (rx * vx + ry * vy), rx * rx + ry * ry
+    disc = b * b - 4 * a * c
+    if disc < 0 or abs(a) < 1e-9:
+        return False
+    t = min(x for x in ((-b - math.sqrt(disc)) / (2 * a), (-b + math.sqrt(disc)) / (2 * a)) if x > 0)
+    bearing = math.atan2(ry + vy * t, rx + vx * t)
+    return abs((yaw - bearing + math.pi) % math.tau - math.pi) < math.radians(3)
+
+
 def switches(rows):
     ids = [row["target"] for row in rows]
     return sum(1 for a, b in zip(ids, ids[1:]) if a is not None and b is not None and a != b)
@@ -702,8 +721,10 @@ def heldout(seed, cases=400):
                         and all(d_att - math.dist(o["pos"], me) <= 25 for o in closer)
                         and chosen != attacker["id"]):
                     fail(RULES[2], (case, k, chosen))
-            # R3
-            if chosen is not None and (chosen not in listed_ids or identify(action, obs) != chosen):
+            # R3 (lead-shots onward the aim may point at where a moving opponent will be when a
+            # gun bullet arrives; that bearing is computed here independently of the bot)
+            if chosen is not None and (chosen not in listed_ids or (
+                    identify(action, obs) != chosen and not aims_ahead_of(action, obs, target))):
                 fail(RULES[3], (case, k))
             # R4
             if vanish is not None and k == vanish:

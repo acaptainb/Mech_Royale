@@ -90,6 +90,7 @@ class Engagement:
     SECOND_TIER_M = 1000.0    # added to everything that is not a shootable mech fighting us
     THREAT_AIM_DEG = 12.0     # its torso aim within this angle of us counts as aiming at us
     THREAT_RANGE_M = 280.0    # the longest weapon reach (laser)
+    LEAD_MIN_MPS = 0.5        # lead-shots: slower opponents are aimed at directly
 
     def __init__(self, hello, cover):
         config = hello["config"]
@@ -106,6 +107,7 @@ class Engagement:
         self.threats = {}     # id -> time it last pointed a weapon at us
         self.hits = {}        # id -> time we last damaged it
         self.decision = {}    # the last decision, for tests and debug drawing
+        self.led = 0          # lead-shots: decisions whose aim was led, for local reports
 
     def observe(self, obs):
         now = obs["t"]
@@ -222,6 +224,13 @@ class Engagement:
         fact = facts[target]
         other, distance = fact["other"], fact["distance"]
         tx, ty, tz = other["pos"]
+        # lead-shots: aim the gun where the opponent will be when the bullet arrives. A full
+        # laser charge is the exception: the beam is instant, so aim straight at the body to
+        # let the v7 release line up.
+        lead = self.lead_point(other, muzzle, weapons)
+        if lead is not None:
+            self.led += 1
+            tx, ty = lead
         flat = math.dist((tx, ty), me[:2])
         if other.get("kind") == "npc":
             pitch = math.atan2(self.centre(other)[2] - muzzle[2], flat)
@@ -247,6 +256,36 @@ class Engagement:
                              clear=fact["clear"], centre=self.centre(other),
                              radius=radius, half_height=half_height)
         return self.decision
+
+    def lead_point(self, other, muzzle, weapons):
+        """The horizontal point where a gun bullet fired now meets the opponent moving at its
+        current velocity, or None to aim straight at it (no gun, no motion, no solution, or a
+        laser charged and ready to release)."""
+        gun = next((w for w in weapons if w and w.get("kind") == "gun"), None)
+        if gun is None:
+            return None
+        for weapon in weapons:
+            if weapon and weapon.get("kind") == "laser":
+                charge_time = ((weapon.get("stats") or {}).get("charge", self.laser.get("charge", 0.75)))
+                if weapon.get("charge", 0) >= charge_time - 1e-6:
+                    return None
+        stats = gun.get("stats") or {}
+        speed, reach = stats.get("speed", 252.0), stats.get("range", 230.0)
+        vx, vy = (other.get("vel") or [0, 0, 0])[:2]
+        if math.hypot(vx, vy) < self.LEAD_MIN_MPS:
+            return None
+        rx, ry = other["pos"][0] - muzzle[0], other["pos"][1] - muzzle[1]
+        a = vx * vx + vy * vy - speed * speed
+        b = 2 * (rx * vx + ry * vy)
+        c = rx * rx + ry * ry
+        disc = b * b - 4 * a * c
+        if disc < 0 or abs(a) < 1e-9:
+            return None
+        times = [t for t in ((-b - math.sqrt(disc)) / (2 * a), (-b + math.sqrt(disc)) / (2 * a)) if t > 0]
+        if not times or min(times) > reach / speed:
+            return None
+        t = min(times)
+        return other["pos"][0] + vx * t, other["pos"][1] + vy * t
 
     def release_laser(self, obs, weapon):
         """v7: let go of a fully charged laser on this decision when the beam would hit the
