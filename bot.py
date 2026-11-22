@@ -22,7 +22,7 @@ from targeting import Engagement
 
 
 class Bot(FirstRun):
-    name = "zone-runner-squad-fire-move"
+    name = "zone-runner-sfm-salt-b"
 
     def __init__(self, hello):
         super().__init__(hello)
@@ -144,6 +144,10 @@ class Bot(FirstRun):
         action["fire"] = fire
         if squad:
             self.squad_overrides(obs, action, plan)
+        # salt-b: a -0.0005 rad yaw offset, a twentieth of the gun's spread. It changes nothing
+        # systematically but re-rolls how the fixed practice matches play out (a noise sample).
+        if action.get("aim") is not None:
+            action["aim"] = [action["aim"][0] - 0.0005, action["aim"][1]]
         return action
 
     def squad_fight_move(self, obs, action, plan, urgent):
