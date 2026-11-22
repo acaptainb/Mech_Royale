@@ -247,6 +247,10 @@ class Engagement:
                       else "committed" if fact["committed"] else "close")
         elif self.shots_land(other, me, distance, weapons):
             fire, reason = True, "open fire: shots land"
+        elif lead is not None:
+            # crossing-fire: the aim is led, so bullets meet a steadily moving opponent even
+            # when unled shots would pass it; the old "would miss" hold no longer applies.
+            fire, reason = True, "open fire: led shots land"
         else:
             fire, reason = False, "hold: passive, shots would miss"
         scale = 1.0 if other.get("kind") == "npc" else 1 + self.size_per_cube * other.get("cubes", 0)

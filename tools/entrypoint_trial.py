@@ -269,7 +269,8 @@ def main():
     for obs in et.STREAM:
         a, b = base_bot.act(copy.deepcopy(obs)), cand_bot.act(copy.deepcopy(obs))
         # This trial is about the laser trigger: later versions may aim or move differently.
-        differing += a.get("fire") != b.get("fire")
+        # crossing-fire onward opens fire on both slots at led, passive targets: not a laser change
+        differing += a.get("fire") != b.get("fire") and not (a.get("fire") == [False, False] and b.get("fire") == [True, True])
     p99 = sorted(cand_bot.times)[int(0.99 * len(cand_bot.times))] * 1e3
     base_bot.close()
     cand_bot.close()

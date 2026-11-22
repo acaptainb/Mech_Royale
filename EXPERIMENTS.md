@@ -25,8 +25,14 @@ Practice seeds are fixed for the whole event and the bot is deterministic. A ver
 | duel-strafe | `duel-strafe` | `2b8e620b618581f267189f12ca46d12b5be28588` | `3b290b0` (2.63) | 2.46 (submission row SHA still to be matched to `2b8e620`) | -0.17 |
 | duel-weave | `duel-weave` | not a candidate: failed its pre-submission gate | `3b290b0` (2.63) | not submitted | n/a |
 | no-mortar | `no-mortar` | `df1be152ba1bee40a368979ccb01eef1b7f9b347` | `3b290b0` (2.63) | 2.58 | -0.05 |
-| lead-shots | `lead-shots` | `4d8a32d3c453d3efb430baddb4bd141678417d77` | `3b290b0` (2.63) | **2.90** (best; parent of the next candidates) | +0.27 |
-| mortar-dodge | `mortar-dodge` | this commit (tag `mortar-dodge-candidate`) | `4d8a32d` (2.90) | pending | pending |
+| lead-shots | `lead-shots` | `4d8a32d3c453d3efb430baddb4bd141678417d77` | `3b290b0` (2.63) | 2.90 (parent of the batch candidates) | +0.27 |
+| crossing-fire | `crossing-fire` | `c1200411b37163ea2496aefbb861a496d2bcea12` | `4d8a32d` (2.90) | 2.94 | +0.04 |
+| offense-upgrades | `offense-upgrades` | `bb0e5e0dc51f8f75356a726230ca080da66706d3` | `4d8a32d` (2.90) | 2.85 | -0.05 |
+| laser-cover | `laser-cover` | `1961af48491445c4d10d88c767f901d163a98668` | `4d8a32d` (2.90) | 2.90 | +0.00 (most likely never fired in practice) |
+| chase-wounded | `chase-wounded` | `ef880813566961c48504d37db14e2e8234a8f3ef` | `4d8a32d` (2.90) | 2.75 | -0.15 (walking toward opponents lost) |
+| mortar-arc | `mortar-arc` | `8670353ea471e3156f988b13b46c7ad01daea128` | `4d8a32d` (2.90) | 2.90 | +0.00 (exactly the parent: most likely never fired, so we rarely or never shoot while holding a ready mortar) |
+| mortar-dodge | `mortar-dodge` | `1645c22576e99d0afe6cb9ce8ec37ad0d9bae616` | `4d8a32d` (2.90) | **3.00** (best; entered in the final) | +0.10 |
+| mortar-dodge + crossing-fire | `combo-mortar-dodge-crossing-fire` | this commit (tag `combo-mortar-dodge-crossing-fire-candidate`) | `1645c22` (3.00) | pending | pending |
 
 ## Log
 
@@ -46,7 +52,8 @@ Practice seeds are fixed for the whole event and the bot is deterministic. A ver
 | duel-weave | `3b290b0` | not a candidate | angling the waypoint 20 degrees, alternating sides, in a clear duel keeps progress and cuts hits | eligible on 115 of 300 recording decisions; the move changed on all 115 | 16 held-out routes: 16/16 finished, but 570 hits vs 554 for 2.63 and safety 0.8 s later | not submitted | gate not passed: more hits than 2.63 |
 | lead-shots | `3b290b0` | this commit (tag `lead-shots-candidate`) | aiming the gun where a moving opponent will be when the bullet arrives lands more hits, so we kill more of the house bots that hunt us before we die | every decision with a moving opponent: aim led on 169 of 300 recording decisions | hits 56 to 109 of 130 shots (43% to 84%) in a closed-loop gunfight; never fewer; laser still released onto a moving target; only the aim changes | **2.90 (+0.27)** | **keep: best score; parent of the next candidates** |
 | no-mortar | `3b290b0` | `df1be15` (tag `no-mortar-candidate`) | never carrying a mortar helps: we cannot aim it, and holding one makes every laser hit on us cook off for +60% | whenever v5 would detour for or walk over a mortar (a third of floor weapons); 0 on the recording (no mortar within 70 m) | never carries a mortar in any layout; takes a laser instead when one is near; control identical | 2.58 (-0.05) | revert: carrying the mortar is worth more than the cook-off risk |
-| mortar-dodge | `4d8a32d` | this commit (tag `mortar-dodge-candidate`) | stepping out of the blast of a visible mortar shell that would land on our route cuts the damage taken (200 direct + 160 splash per shell) | only while a mortar shell is visible and would hit our route within 2.5 s; 0 on the recording (no shell listed) | closed-loop shell damage 10,240 to 0 (tuning) and 12,040 to 360 (held-out); every route finished, 0 zone exits; 4 controls identical on every decision | pending | pending your score |
+| mortar-dodge | `4d8a32d` | `1645c22` (tag `mortar-dodge-candidate`) | stepping out of the blast of a visible mortar shell that would land on our route cuts the damage taken (200 direct + 160 splash per shell) | only while a mortar shell is visible and would hit our route within 2.5 s; 0 on the recording (no shell listed) | closed-loop shell damage 10,240 to 0 (tuning) and 12,040 to 360 (held-out); every route finished, 0 zone exits; 4 controls identical on every decision | **3.00 (+0.10)** | **keep: best score; parent of the combination** |
+| mortar-dodge + crossing-fire | `1645c22` | this commit (tag `combo-mortar-dodge-crossing-fire-candidate`) | the two changes that scored above lead-shots (2.90) on their own add up | the shell dodge as in mortar-dodge (0 on the recording); crossing-fire's led fire as in `c120041` (fire differs from mortar-dodge on 8 of 300 recording decisions) | moves exactly as mortar-dodge and fires exactly as crossing-fire on every checked decision; 32 shell routes and 9 gunfights identical to the parent whose change is active | pending | pending your score |
 
 ## v6: selective engagement
 
@@ -338,3 +345,14 @@ v6 reproduces the v5 column exactly.
 - Zone return has no stuck recovery (v4 onward). v5's 8 s zone margin exists so an abandoned detour still leaves time for ordinary movement.
 - No match feedback or replays were available without signing in to the Buildathon site, so nothing here comes from official matches beyond the scores.
 - The recording never lists two mechs, never shows a pickup within reach, and does not react to the bot. The scripted and closed-loop trials cover those cases, but they measure decisions, not placements.
+
+## Combination: mortar-dodge + crossing-fire (on `1645c22`, the 3.00 commit)
+
+Both changes scored above their shared parent, lead-shots (`4d8a32d`, 2.90), on their own: mortar-dodge 3.00 (+0.10) and crossing-fire 2.94 (+0.04). This branch is mortar-dodge with crossing-fire's change applied unchanged (the four lines in `targeting.py`, plus crossing-fire's trial and the three trial narrowings it made). The shell dodge only sets move and boost, and crossing-fire only changes the fire decision for a passive opponent when the aim is led, so the two never write the same command. Ready name `zone-runner-md-crossing-fire` (names are cut at 32 characters).
+
+| Check | Result |
+| --- | --- |
+| `py tools/combo_md_cf_check.py` (against the exported mortar-dodge and crossing-fire) | recording: commands other than fire identical to mortar-dodge on 300 of 300, fire identical to crossing-fire on 300 of 300 (it differs from mortar-dodge on crossing-fire's 8); 4 scripted shell decisions move as mortar-dodge and fire as crossing-fire; 32 closed-loop shell routes identical to mortar-dodge (360 damage in total, the same single direct hit); 9 crossing-fire gunfights identical to crossing-fire |
+| `py tools/shell_dodge_trial.py --baseline c120041` | identical to mortar-dodge's own run: shell damage 10,240 to 0 (tuning) and 12,040 to 360 (held-out), every route finished, 0 zone exits; scripted checks and controls pass; 0 of 300 recording answers differ from crossing-fire |
+| `py tools/crossing_fire_trial.py --baseline 1645c22` | fires where mortar-dodge held on the passive crossing opponents and lands hits; controls identical; only fire differs on the recording |
+| regressions | engagement trial and `--heldout`, `lead_trial --baseline 3b290b0`, `entrypoint_trial --baseline 4588e6b`, dodge trial, combo check, objective checks (12), route (150/150), pickup and target (11) trials, engagement probe and `verify.py` all pass |

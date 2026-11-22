@@ -78,3 +78,7 @@ Built on the 2.63 commit (`3b290b0`). The gun aims where a moving opponent will 
 ## mortar-dodge
 
 Built on lead-shots (`4d8a32d`, official 2.90). The bot steps out of the blast of a visible mortar shell that would land on its route (`ShellDodge` in `dodge.py`). It predicts each shell's flight against the cover raster, checks where the route would put us when the shell lands, and picks the clear direction with the least predicted damage, preferring the route direction. It never acts during an urgent zone return. Run `py tools/shell_dodge_trial.py` for the closed-loop shell trial against the exported baseline.
+
+## mortar-dodge + crossing-fire
+
+Built on mortar-dodge (`1645c22`, official 3.00) with crossing-fire's change (`c120041`, official 2.94) added unchanged: the shell dodge owns movement when a mortar shell threatens the route, and the gun also fires at a passive opponent when its aim is led. Run `py tools/combo_md_cf_check.py` to check that it moves exactly as mortar-dodge and fires exactly as crossing-fire.

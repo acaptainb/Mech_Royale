@@ -70,10 +70,11 @@ SCENARIOS = [
 ]
 
 
-def opponent(pos, vel):
+def opponent(pos, vel, passive=False):
     z = et.ground(*pos)
     toward_us = math.atan2(HOME[1] - pos[1], HOME[0] - pos[0])
-    return dict(id=5, kind="mech", pos=[pos[0], pos[1], z], vel=[vel[0], vel[1], 0.0], aim=[toward_us, 0.0],
+    aim = toward_us + (math.pi / 2 if passive else 0.0)
+    return dict(id=5, kind="mech", pos=[pos[0], pos[1], z], vel=[vel[0], vel[1], 0.0], aim=[aim, 0.0],
                 hp=1400, max_hp=1400, cubes=0, weapons=["gun", "laser"], charging=False)
 
 
@@ -87,7 +88,7 @@ def body_hit(origin, direction, length, target):
     return math.hypot(px - tx, py - ty) <= MECH["radius"] + BULLET_R and tz <= pz <= tz + MECH["height"]
 
 
-def gunfight(folder, motion, seconds=6.0, seed=1, laser=False):
+def gunfight(folder, motion, seconds=6.0, seed=1, laser=False, passive=False):
     bot = BotProcess(folder, et.HELLO)
     rng = random.Random(seed)
     aim = [0.0, 0.0]
@@ -101,7 +102,7 @@ def gunfight(folder, motion, seconds=6.0, seed=1, laser=False):
     for tick in range(int(seconds / DT)):
         t = tick * DT
         pos, vel = motion(t)
-        target = opponent(pos, vel)
+        target = opponent(pos, vel, passive)
         if tick == 0:
             aim = [math.atan2(pos[1] - HOME[1], pos[0] - HOME[0]), 0.0]
             commanded = list(aim)
@@ -222,7 +223,8 @@ def main():
     for obs in et.STREAM:
         a, c = base_bot.act(copy.deepcopy(obs)), cand_bot.act(copy.deepcopy(obs))
         aim_diff += a.get("aim") != c.get("aim")
-        rest = lambda x: {k: v for k, v in x.items() if k not in ("aim", "tick", "debug")}
+        # crossing-fire onward also opens fire on led, passive targets
+        rest = lambda x: {k: v for k, v in x.items() if k not in ("aim", "fire", "tick", "debug")}
         other_diff += rest(a) != rest(c)
         if a.get("aim") != c.get("aim") and len(trace) < 3:
             trace.append((obs["t"], a["aim"], c["aim"], obs["mechs"][0]["vel"][:2], round(math.dist(obs["mechs"][0]["pos"], obs["self"]["pos"]))))
